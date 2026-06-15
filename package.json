@@ -1,0 +1,16 @@
+{
+  "name": "pokekool-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Monorepo Pokekool - Design System + scripts d'export tokens",
+  "scripts": {
+    "tokens:angular": "node design-system/export-angular.js",
+    "tokens:maui": "node design-system/export-maui.js",
+    "tokens:build": "npm run tokens:angular && npm run tokens:maui",
+    "tokens:watch": "node design-system/watch.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "UNLICENSED"
+}

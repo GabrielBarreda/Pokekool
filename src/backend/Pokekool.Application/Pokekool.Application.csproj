@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Pokekool.Application</RootNamespace>
+    <AssemblyName>Pokekool.Application</AssemblyName>
+    <Description>Cas d'usage (Commands/Queries) + DTOs internes + interfaces de services externes.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Pokekool.Domain\Pokekool.Domain.csproj" />
+    <ProjectReference Include="..\Pokekool.Shared\Pokekool.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediatR" Version="$(MediatRVersion)" />
+    <PackageReference Include="FluentValidation" Version="$(FluentValidationVersion)" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="$(FluentValidationVersion)" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="$(MicrosoftExtensionsVersion)" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="$(MicrosoftExtensionsVersion)" />
+  </ItemGroup>
+
+</Project>

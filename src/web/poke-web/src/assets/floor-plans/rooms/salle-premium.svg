@@ -1,0 +1,11 @@
+<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+    <defs>${PARQUET_PATTERN}</defs>
+    <rect width="400" height="300" fill="url(#ph-parquet)"/>
+    <rect width="400" height="300" fill="#c9a84c" opacity="0.06"/>
+    ${rectTable(80, 80, 50, 35, 4, '#5a3a1a', '#7a4a1e')}
+    ${rectTable(200, 80, 50, 35, 4, '#5a3a1a', '#7a4a1e')}
+    ${rectTable(320, 80, 50, 35, 4, '#5a3a1a', '#7a4a1e')}
+    ${roundTable(130, 190, 22, 6, '#5a3a1a', '#7a4a1e')}
+    ${roundTable(280, 190, 22, 6, '#5a3a1a', '#7a4a1e')}
+    ${rectTable(200, 255, 60, 30, 4, '#5a3a1a', '#7a4a1e')}
+  </svg>

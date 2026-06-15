@@ -1,0 +1,76 @@
+name: pokekool-dev
+
+# Stack de développement local : PostgreSQL + Redis + Adminer.
+# Lancée depuis la racine du repo : docker compose -f docker/docker-compose.yml up -d
+#
+# Ports Pokekool (ne pas modifier sans mettre à jour appsettings.json) :
+#   PostgreSQL : 5434
+#   Redis      : 6382
+#   Adminer    : 8091
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: pokekool-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pokekool}
+      POSTGRES_USER: ${POSTGRES_USER:-pokekool}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pokekool_dev_password}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pokekool} -d ${POSTGRES_DB:-pokekool}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - pokekool-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: pokekool-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "${REDIS_PORT:-6382}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - pokekool-net
+
+  adminer:
+    image: adminer:4
+    container_name: pokekool-adminer
+    restart: unless-stopped
+    ports:
+      - "${ADMINER_PORT:-8091}:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: dracula
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pokekool-net
+
+volumes:
+  postgres-data:
+    name: pokekool-postgres-data
+  redis-data:
+    name: pokekool-redis-data
+
+networks:
+  pokekool-net:
+    name: pokekool-net
+    driver: bridge

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Pokekool.Domain</RootNamespace>
+    <AssemblyName>Pokekool.Domain</AssemblyName>
+    <Description>Cœur métier : entités, value objects, interfaces de repositories. Zéro dépendance framework.</Description>
+  </PropertyGroup>
+
+  <!--
+    RÈGLE CARDINALE : aucune dépendance vers EF Core, ASP.NET, MediatR ou tout framework.
+    Le Domain ne change que quand les règles métier changent.
+  -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\Pokekool.Shared\Pokekool.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

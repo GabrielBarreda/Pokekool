@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Pokekool.Shared</RootNamespace>
+    <AssemblyName>Pokekool.Shared</AssemblyName>
+    <Description>DTOs et Enums partagés Backend ↔ Mobile. Zéro dépendance framework.</Description>
+  </PropertyGroup>
+
+</Project>

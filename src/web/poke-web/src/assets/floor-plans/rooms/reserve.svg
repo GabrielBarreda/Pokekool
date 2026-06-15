@@ -1,0 +1,16 @@
+<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+    <rect width="400" height="300" fill="#d0ccc6"/>
+    <!-- Étagères -->
+    <rect x="30" y="20" width="340" height="18" rx="2" fill="#a0a0a0" stroke="#909090" stroke-width="0.5"/>
+    <rect x="30" y="60" width="340" height="18" rx="2" fill="#a0a0a0" stroke="#909090" stroke-width="0.5"/>
+    <rect x="30" y="100" width="340" height="18" rx="2" fill="#a0a0a0" stroke="#909090" stroke-width="0.5"/>
+    <rect x="30" y="140" width="340" height="18" rx="2" fill="#a0a0a0" stroke="#909090" stroke-width="0.5"/>
+    <!-- Montants -->
+    <rect x="30" y="20" width="4" height="138" fill="#888"/>
+    <rect x="196" y="20" width="4" height="138" fill="#888"/>
+    <rect x="366" y="20" width="4" height="138" fill="#888"/>
+    <!-- Caisses au sol -->
+    <rect x="50" y="200" width="50" height="40" rx="3" fill="#b8a898" stroke="#a09080" stroke-width="1"/>
+    <rect x="120" y="200" width="50" height="40" rx="3" fill="#b8a898" stroke="#a09080" stroke-width="1"/>
+    <rect x="50" y="250" width="50" height="40" rx="3" fill="#c0b0a0" stroke="#a09080" stroke-width="1"/>
+  </svg>

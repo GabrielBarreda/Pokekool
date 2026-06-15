@@ -1,0 +1,96 @@
+# Conventions spécifiques au backend C#.
+# Hérite du .editorconfig racine et ajuste les analyseurs Roslyn.
+
+[*.cs]
+
+# =====================================================
+# Règles désactivées (notre choix de style)
+# =====================================================
+
+# CA1716 : conflits de noms d'espaces avec mots-clés VB / F# (Shared, Public…)
+# On ne supporte que C#, donc cette règle est du bruit.
+dotnet_diagnostic.CA1716.severity = none
+
+# IDE0040 : modificateurs d'accessibilité obligatoires
+# Sur les membres d'interface (toujours publics), c'est du bruit.
+# Activé seulement en suggestion, pas en erreur de build.
+dotnet_diagnostic.IDE0040.severity = suggestion
+
+# IDE0011 : accolades obligatoires sur les if d'une ligne
+# Notre style autorise les if d'une ligne pour les guard clauses.
+dotnet_diagnostic.IDE0011.severity = suggestion
+
+# CA1062 : valider les arguments publics (trop verbeux, surtout en DTOs)
+dotnet_diagnostic.CA1062.severity = suggestion
+
+# CA1707 : underscores dans les identifiants (utile pour les tests xUnit)
+dotnet_diagnostic.CA1707.severity = none
+
+# CA2007 : ConfigureAwait(false) (non requis en ASP.NET Core)
+dotnet_diagnostic.CA2007.severity = none
+
+# CA1812 : type interne jamais instancié (faux positif sur les classes DI-instanciées)
+dotnet_diagnostic.CA1812.severity = none
+
+# CA1822 : marquer les membres comme static (parfois utile, parfois bruit)
+dotnet_diagnostic.CA1822.severity = suggestion
+
+# CA1848 : utiliser LoggerMessage delegates (optimisation perf, à faire plus tard)
+dotnet_diagnostic.CA1848.severity = suggestion
+
+# CA1873 : éviter d'évaluer des arguments coûteux pour des logs filtrés
+# (faux positif sur Guid, string, etc. qui ne sont pas coûteux à évaluer)
+dotnet_diagnostic.CA1873.severity = suggestion
+
+# CA1869 : cacher JsonSerializerOptions (déjà respecté quand possible, mais pas bloquant)
+dotnet_diagnostic.CA1869.severity = warning
+
+# CA1711 : interdit les suffixes Permission, Permissions, Flags, Stream, etc.
+# Faux positif sur un domaine métier "permissions" → on désactive.
+dotnet_diagnostic.CA1711.severity = none
+
+# CA1859 : utiliser le type concret au lieu d'interface (perf en hot path)
+# Trop agressif sur des helpers non-perf-critical (seed, init…) → suggestion seulement.
+dotnet_diagnostic.CA1859.severity = suggestion
+
+# IDE0058 : valeur d'expression jamais utilisée (faux positif sur les fluent builders)
+dotnet_diagnostic.IDE0058.severity = none
+
+# IDE0290 : utiliser le constructeur principal (style, pas une erreur)
+dotnet_diagnostic.IDE0290.severity = suggestion
+
+# IDE0028 : initialisation de collection simplifiée
+dotnet_diagnostic.IDE0028.severity = suggestion
+
+# IDE0301 / IDE0300 : initialiseur de collection vide / non vide
+dotnet_diagnostic.IDE0301.severity = suggestion
+dotnet_diagnostic.IDE0300.severity = suggestion
+
+# =====================================================
+# Règles plus strictes que par défaut
+# =====================================================
+
+# CA1305 : préciser la culture sur les conversions (sécurité)
+# Rétrogradé en suggestion : Serilog WriteTo.Console() lève un faux positif.
+dotnet_diagnostic.CA1305.severity = suggestion
+
+# CA1304 : préciser la CultureInfo (sécurité)
+dotnet_diagnostic.CA1304.severity = suggestion
+
+
+[*Tests*.cs]
+# Tests : on est plus tolérants
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA1062.severity = none
+dotnet_diagnostic.CA2007.severity = none
+
+# =====================================================
+# Migrations EF Core : code auto-généré, on ne juge pas
+# =====================================================
+[**/Migrations/**.cs]
+generated_code = true
+dotnet_analyzer_diagnostic.severity = none
+dotnet_diagnostic.IDE0161.severity = none
+dotnet_diagnostic.CA1861.severity = none
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA1062.severity = none

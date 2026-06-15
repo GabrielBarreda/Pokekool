@@ -1,0 +1,18 @@
+/*
+ * Styles de base réutilisables dans les composants Angular (inline styles).
+ * N'est PAS importé ici — copier-coller les blocs nécessaires dans chaque styles: [`...`].
+ * Sert de référence avec les VRAIS noms de tokens.
+ *
+ * Tokens disponibles :
+ *   Couleurs   : --color-brand-primary, --color-brand-primary-hover, --color-brand-primary-subtle
+ *                --color-text-primary, --color-text-secondary, --color-text-muted
+ *                --color-surface-base, --color-surface-raised, --color-neutral-100
+ *                --color-border-default, --color-border-subtle
+ *                --color-semantic-danger, --color-semantic-danger-subtle
+ *                --color-semantic-success, --color-semantic-warning
+ *   Typo       : --font-size-xs/sm/md/lg/xl/2xl, --font-weight-regular/medium/semibold/bold
+ *   Espacement : --space-1 (4px) à --space-24 (96px)
+ *   Rayon      : --radius-sm/md/lg/xl/full
+ *   Ombres     : --shadow-sm/md/lg/xl
+ *   Durées     : --duration-fast (150ms), --duration-normal (250ms)
+ */

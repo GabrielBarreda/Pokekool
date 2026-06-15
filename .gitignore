@@ -1,0 +1,171 @@
+# =====================================================
+# OS / Editors
+# =====================================================
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.swp
+*.swo
+*~
+
+# JetBrains
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Visual Studio
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+*.userprefs
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.vcxproj.user
+
+# =====================================================
+# .NET / C#
+# =====================================================
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]uild/
+[Ll]og/
+msbuild.log
+msbuild.err
+msbuild.wrn
+
+# NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.VisualState.xml
+TestResult.xml
+nunit-*.xml
+coverage*.json
+coverage*.xml
+coverage*.info
+*.coverage
+*.coveragexml
+
+# Roslyn / IntelliCode
+.ionide/
+*.cache
+
+# Publish output
+PublishProfiles/
+publish/
+*.[Pp]ublish.xml
+*.azurePubxml
+
+# EF Core
+**/Migrations/*.designer.cs.tmp
+
+# MAUI / Xamarin
+**/[Bb]in/
+**/[Oo]bj/
+*.apk
+*.aab
+*.ipa
+*.dSYM/
+*.dSYM.zip
+
+# =====================================================
+# Node.js / Angular / Web
+# =====================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.pnpm-store/
+pnpm-lock.yaml.bak
+.npm
+.yarn-integrity
+
+# Angular build artifacts
+dist/
+tmp/
+out-tsc/
+bazel-out/
+.angular/
+
+# Cypress / Playwright / Jest
+cypress/screenshots/
+cypress/videos/
+playwright-report/
+test-results/
+
+# =====================================================
+# Environnement / Secrets
+# =====================================================
+.env
+.env.local
+.env.*.local
+.env.development
+.env.staging
+.env.production
+appsettings.Development.json
+appsettings.Staging.json
+appsettings.Production.json
+secrets.json
+*.pfx
+*.key
+*.pem
+
+# =====================================================
+# Docker
+# =====================================================
+.docker/
+docker-compose.override.yml
+
+# =====================================================
+# Design System (généré, peut être régénéré)
+# =====================================================
+# tokens.css et Tokens.xaml sont GÉNÉRÉS depuis tokens.json
+# On les commit quand même pour faciliter le clone initial,
+# mais à débattre si l'équipe préfère les régénérer en CI.
+
+# =====================================================
+# Misc
+# =====================================================
+*.log
+*.tmp
+*.bak
+*.orig
+.history/
+.local/

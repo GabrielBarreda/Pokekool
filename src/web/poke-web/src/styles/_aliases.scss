@@ -1,0 +1,42 @@
+/*
+ * Alias courts → vrais tokens CSS
+ * Usage : @use 'styles/aliases' as *;  (ou importer via stylePreprocessorOptions)
+ * Ces variables CSS sont définies ici pour être utilisables dans les composants
+ * sans avoir à réécrire les noms complets des tokens.
+ */
+
+:root {
+  /* ── Brand ─────────────────────────────────────── */
+  --color-brand:        var(--color-brand-primary);
+  --color-brand-hover:  var(--color-brand-primary-hover);
+  --color-brand-subtle: var(--color-brand-primary-subtle);
+
+  /* ── Text ──────────────────────────────────────── */
+  --color-text:           var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);  /* déjà bon */
+  --color-text-muted:     var(--color-text-muted);      /* déjà bon */
+
+  /* ── Background ────────────────────────────────── */
+  --color-bg:        var(--color-surface-base);
+  --color-bg-subtle: var(--color-surface-raised);
+  --color-bg-hover:  var(--color-neutral-100);
+
+  /* ── Border ────────────────────────────────────── */
+  --color-border:       var(--color-border-default);
+  --color-border-focus: var(--color-border-focus);
+
+  /* ── Semantic ──────────────────────────────────── */
+  --color-danger:       var(--color-semantic-danger);
+  --color-danger-light: var(--color-semantic-danger-subtle);
+  --color-success:      var(--color-semantic-success);
+  --color-warning:      var(--color-semantic-warning);
+  --color-info:         var(--color-semantic-info);
+
+  /* ── Typography shortcuts ──────────────────────── */
+  --text-xs:   var(--font-size-xs);
+  --text-sm:   var(--font-size-sm);
+  --text-base: var(--font-size-md);
+  --text-lg:   var(--font-size-lg);
+  --text-xl:   var(--font-size-xl);
+  --text-2xl:  var(--font-size-2xl);
+}

@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Pokekool.Infrastructure</RootNamespace>
+    <AssemblyName>Pokekool.Infrastructure</AssemblyName>
+    <Description>Implémentation technique : EF Core, PostgreSQL, Redis, services externes.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Pokekool.Domain\Pokekool.Domain.csproj" />
+    <ProjectReference Include="..\Pokekool.Application\Pokekool.Application.csproj" />
+    <ProjectReference Include="..\Pokekool.Shared\Pokekool.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="$(EfCoreVersion)" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="$(EfCoreVersion)" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="$(NpgsqlEfCoreVersion)" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="$(EfCoreVersion)">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="StackExchange.Redis" Version="$(StackExchangeRedisVersion)" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="$(MicrosoftExtensionsOptionsConfigVersion)" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.1.2" />
+    <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.1.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+</Project>
