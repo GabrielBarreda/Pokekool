@@ -18,7 +18,7 @@ public sealed class PokekoolDbContextFactory : IDesignTimeDbContextFactory<Pokek
     public PokekoolDbContext CreateDbContext(string[] args)
     {
         var connectionString = Environment.GetEnvironmentVariable("POKEKOOL_DESIGN_CONNECTION")
-            ?? "Host=localhost;Port=5433;Database=pokekool;Username=pokekool;Password=pokekool_dev_password";
+            ?? "Host=localhost;Port=5434;Database=pokekool;Username=pokekool;Password=pokekool_dev_password";
 
         var options = new DbContextOptionsBuilder<PokekoolDbContext>()
             .UseNpgsql(connectionString, npgsql =>

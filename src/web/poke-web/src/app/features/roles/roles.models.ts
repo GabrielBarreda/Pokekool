@@ -37,16 +37,12 @@ export interface PermissionGroup {
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
-  menus: 'Menus',
-  orders: 'Commandes',
-  reservations: 'Réservations',
-  establishments: 'Établissements',
-  tables: 'Tables & plans de salle',
-  users: 'Équipe',
+  cards: 'Cartes Pokémon',
+  users: 'Utilisateurs',
   roles: 'Rôles & permissions',
-  analytics: 'Analytiques',
-  billing: 'Facturation',
-  tenant_settings: 'Paramètres',
+  collection: 'Collection',
+  alerts: 'Alertes',
+  messages: 'Messagerie',
 };
 
 export function groupPermissions(perms: PermissionDto[]): PermissionGroup[] {

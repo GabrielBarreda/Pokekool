@@ -35,6 +35,7 @@
     <FluentValidationVersion>11.10.0</FluentValidationVersion>
     <SwashbuckleVersion>6.8.1</SwashbuckleVersion>
     <StackExchangeRedisVersion>2.8.16</StackExchangeRedisVersion>
+    <MicrosoftExtensionsHttpResilienceVersion>8.10.0</MicrosoftExtensionsHttpResilienceVersion>
   </PropertyGroup>
 
 </Project>

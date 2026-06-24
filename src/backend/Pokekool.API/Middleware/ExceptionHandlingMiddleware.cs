@@ -86,6 +86,12 @@ public sealed class ExceptionHandlingMiddleware
                 "Domain rule violation",
                 dx.Message);
         }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            // Requête annulée (client déconnecté ou shutdown) — pas une erreur applicative
+            _logger.LogDebug("Request cancelled (client disconnect or app shutdown)");
+            context.Response.StatusCode = 499; // Client Closed Request
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception");

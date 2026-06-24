@@ -29,22 +29,6 @@ import { ButtonComponent } from '@shared/ui/button/button.component';
         <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="login-card__form">
 
           <div class="field">
-            <label for="tenantSlug" class="field__label">Identifiant</label>
-            <input
-              id="tenantSlug"
-              type="text"
-              class="field__input"
-              formControlName="tenantSlug"
-              placeholder="pokekool-dev"
-              autocomplete="organization"
-              [class.field__input--error]="isInvalid('tenantSlug')"
-            />
-            @if (isInvalid('tenantSlug')) {
-              <span class="field__error">Ce champ est requis</span>
-            }
-          </div>
-
-          <div class="field">
             <label for="email" class="field__label">Email</label>
             <input
               id="email"
@@ -176,7 +160,6 @@ export class LoginComponent implements OnInit {
   private readonly router = inject(Router);
 
   form = this.fb.nonNullable.group({
-    tenantSlug: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
     password: ['', Validators.required],
   });

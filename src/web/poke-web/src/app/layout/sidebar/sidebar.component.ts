@@ -3,7 +3,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import { NgFor, NgIf, NgClass } from '@angular/common';
 import { AuthStore } from '@core/auth/auth.store';
 import { PermissionStore } from '@core/auth/permission.store';
-import { ADMIN_NAV_ITEMS, ADMIN_ONLY_NAV_ITEMS, PLANNING_NAV_ITEMS, NavItem } from '../nav-item.model';
+import { MAIN_NAV_ITEMS, ADMIN_ONLY_NAV_ITEMS, NavItem } from '../nav-item.model';
 
 @Component({
   selector: 'app-sidebar',
@@ -32,25 +32,6 @@ import { ADMIN_NAV_ITEMS, ADMIN_ONLY_NAV_ITEMS, PLANNING_NAV_ITEMS, NavItem } fr
           </a>
         </li>
       </ul>
-
-      <!-- Séparateur + Nav planning -->
-      <ng-container *ngIf="planningItems().length > 0">
-        <div class="sidebar__divider" role="separator"></div>
-        <span *ngIf="!collapsed" class="sidebar__section-label">Planning</span>
-        <ul class="sidebar__nav" role="list">
-          <li *ngFor="let item of planningItems()" class="sidebar__nav-item">
-            <a
-              [routerLink]="item.route"
-              routerLinkActive="sidebar__link--active"
-              class="sidebar__link"
-              [attr.title]="collapsed ? item.label : null"
-            >
-              <span class="sidebar__icon" aria-hidden="true">{{ item.icon }}</span>
-              <span *ngIf="!collapsed" class="sidebar__label">{{ item.label }}</span>
-            </a>
-          </li>
-        </ul>
-      </ng-container>
 
       <!-- Séparateur + Nav admin -->
       <ng-container *ngIf="adminItems().length > 0">
@@ -171,15 +152,11 @@ export class SidebarComponent {
     this.authStore.user()?.roles?.includes('admin') ?? false
   );
 
-  readonly planningItems = computed(() => PLANNING_NAV_ITEMS);
-
-  // Tant que les permissions ne sont pas chargées, on affiche tous les items
-  // (évite la sidebar vide juste après login)
   private readonly permsLoaded = computed(() => this.permStore.loaded());
 
   readonly visibleItems = computed(() => {
-    if (!this.permsLoaded()) return ADMIN_NAV_ITEMS;
-    return ADMIN_NAV_ITEMS.filter(item =>
+    if (!this.permsLoaded()) return MAIN_NAV_ITEMS;
+    return MAIN_NAV_ITEMS.filter(item =>
       !item.permission || this.permStore.permissions().includes(item.permission)
     );
   });

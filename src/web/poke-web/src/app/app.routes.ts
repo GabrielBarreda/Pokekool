@@ -10,7 +10,7 @@ export const routes: Routes = [
     title: 'Connexion — Pokekool',
   },
 
-  // ── Protected admin shell ─────────────────────────────────
+  // ── Protected shell ───────────────────────────────────────
   {
     path: '',
     loadComponent: () =>
@@ -25,47 +25,52 @@ export const routes: Routes = [
         title: 'Tableau de bord — Pokekool',
       },
 
-      // Plans de salle (Phase 2)
+      // Bourse (Phase 1)
       {
-        path: 'floor-plans',
+        path: 'bourse',
         loadChildren: () =>
-          import('./features/floor-plans/floor-plans.routes').then(m => m.FLOOR_PLAN_ROUTES),
-        title: 'Plans de salle — Pokekool',
+          import('./features/bourse/market.routes').then(m => m.MARKET_ROUTES),
       },
 
-      // Réservations (Phase 2)
+      // Collection (Phase 2)
       {
-        path: 'reservations',
-        loadChildren: () =>
-          import('./features/reservations/reservations.routes').then(m => m.RESERVATION_ROUTES),
-        title: 'Réservations — Pokekool',
+        path: 'collection',
+        loadComponent: () =>
+          import('./features/coming-soon/coming-soon.component').then(m => m.ComingSoonComponent),
+        title: 'Collection — Pokekool',
+        data: { feature: 'Collection' },
       },
 
-      // Commandes (Phase 2)
+      // Messages (Phase 2)
       {
-        path: 'orders',
-        loadChildren: () =>
-          import('./features/orders/orders.routes').then(m => m.ORDER_ROUTES),
-        title: 'Commandes — Pokekool',
+        path: 'messages',
+        loadComponent: () =>
+          import('./features/coming-soon/coming-soon.component').then(m => m.ComingSoonComponent),
+        title: 'Messages — Pokekool',
+        data: { feature: 'Messages' },
       },
 
-      // Menus
+      // Profil
       {
-        path: 'menus',
-        loadChildren: () =>
-          import('./features/menus/menus.routes').then(m => m.MENU_ROUTES),
-        title: 'Menus — Pokekool',
+        path: 'profil',
+        loadComponent: () =>
+          import('./features/coming-soon/coming-soon.component').then(m => m.ComingSoonComponent),
+        title: 'Mon profil — Pokekool',
+        data: { feature: 'Profil' },
       },
 
-      // Équipe (admin only — phase 1)
+      // ── Admin only ──────────────────────────────────────────
+
+      // Utilisateurs (admin)
       {
-        path: 'team',
-        loadChildren: () =>
-          import('./features/team/team.routes').then(m => m.TEAM_ROUTES),
-        title: 'Équipe — Pokekool',
+        path: 'utilisateurs',
+        loadComponent: () =>
+          import('./features/coming-soon/coming-soon.component').then(m => m.ComingSoonComponent),
+        title: 'Utilisateurs — Pokekool',
+        data: { feature: 'Utilisateurs' },
       },
 
-      // Rôles & permissions (admin only — phase 1)
+      // Rôles & permissions (admin)
       {
         path: 'roles',
         loadChildren: () =>
@@ -73,15 +78,7 @@ export const routes: Routes = [
         title: 'Rôles — Pokekool',
       },
 
-      // Planning
-      {
-        path: 'planning',
-        loadChildren: () =>
-          import('./features/planning/planning.routes').then(m => m.PLANNING_ROUTES),
-        title: 'Planning — Pokekool',
-      },
-
-      // Paramètres (admin only — phase 1)
+      // Paramètres (admin)
       {
         path: 'settings',
         loadChildren: () =>

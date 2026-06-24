@@ -1,9 +1,23 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using Pokekool.Application.Abstractions;
+using Pokekool.Infrastructure.DataProviders.CardMarket;
+using Pokekool.Infrastructure.DataProviders.CardMarketScraping;
+using Pokekool.Infrastructure.DataProviders.CardTrader;
+using Pokekool.Infrastructure.DataProviders.Mavin;
+using Pokekool.Infrastructure.DataProviders.PointSales;
+using Pokekool.Infrastructure.DataProviders.TcgPlayer;
+using Pokekool.Application.DataCollection;
 using Pokekool.Domain.Repositories;
 using Pokekool.Infrastructure.Authentication;
+using Pokekool.Infrastructure.DataProviders.PokemonTcg;
+using Pokekool.Infrastructure.DataProviders.PriceCharting;
+using Pokekool.Infrastructure.DataProviders.Psa;
+using Pokekool.Infrastructure.DataProviders.Scraping;
+using Pokekool.Infrastructure.ExternalClients;
 using Pokekool.Infrastructure.Options;
 using Pokekool.Infrastructure.Persistence;
 using Pokekool.Infrastructure.Persistence.Repositories;
@@ -23,9 +37,14 @@ public static class DependencyInjection
         var dbOptions = config.GetSection(DatabaseOptions.SectionName).Get<DatabaseOptions>()
             ?? new DatabaseOptions();
 
+        var dataSourceBuilder = new NpgsqlDataSourceBuilder(dbOptions.ConnectionString);
+        dataSourceBuilder.EnableDynamicJson();
+        var dataSource = dataSourceBuilder.Build();
+        services.AddSingleton(dataSource);
+
         services.AddDbContext<PokekoolDbContext>(opt =>
         {
-            opt.UseNpgsql(dbOptions.ConnectionString, npgsql =>
+            opt.UseNpgsql(dataSource, npgsql =>
             {
                 npgsql.MigrationsAssembly(typeof(PokekoolDbContext).Assembly.FullName);
                 npgsql.EnableRetryOnFailure(maxRetryCount: 3);
@@ -48,6 +67,71 @@ public static class DependencyInjection
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IPermissionRepository, PermissionRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+        services.AddScoped<IPokemonSeriesRepository, PokemonSeriesRepository>();
+        services.AddScoped<IPokemonSetRepository, PokemonSetRepository>();
+        services.AddScoped<IPokemonCardRepository, PokemonCardRepository>();
+        services.AddScoped<ICardMarketPriceRepository, CardMarketPriceRepository>();
+        services.AddScoped<ICardPopulationRepository, CardPopulationRepository>();
+        services.AddScoped<IProviderSettingRepository, ProviderSettingRepository>();
+
+        // ---- PokemonTCG HTTP client (bas niveau, utilisé par PokemonTcgProvider) ----
+        services.Configure<PokemonTcgOptions>(config.GetSection(PokemonTcgOptions.SectionName));
+        services.AddHttpClient<IPokemonTcgClient, PokemonTcgClient>()
+            .AddStandardResilienceHandler(options =>
+            {
+                options.Retry.MaxRetryAttempts = 3;
+                options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(60);
+            });
+
+        // ---- ProviderSettingsService (chiffrement + cache) ----
+        services.AddMemoryCache();
+        services.AddDataProtection();
+        services.AddScoped<IProviderSettingsService, ProviderSettingsService>();
+
+        // ---- Providers (injectés via IEnumerable<T> dans DataAggregator) ----
+        services.AddScoped<ICardMetadataProvider, PokemonTcgProvider>();
+        services.AddScoped<ICardPriceProvider, PriceChartingProvider>();
+        services.AddScoped<ICardPriceProvider, CardMarketProvider>();
+        services.AddScoped<ICardPriceProvider, CardMarketScrapingProvider>();
+        services.AddScoped<ICardPriceProvider, TcgPlayerProvider>();
+        services.AddScoped<ICardPriceProvider, CardTraderProvider>();
+        services.AddScoped<ICardPriceProvider, MavinProvider>();
+        services.AddScoped<ICardPriceProvider, PointSalesProvider>();
+        services.AddScoped<IPopulationProvider, PsaProvider>();
+
+        // ---- CardMarket HttpClient (OAuth 1.0a via DelegatingHandler) ----
+        services.Configure<CardMarketOptions>(config.GetSection(CardMarketOptions.SectionName));
+        services.AddScoped<CardMarketAuthHandler>();
+        services.AddHttpClient<ICardMarketClient, CardMarketClient>((sp, client) =>
+        {
+            var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<CardMarketOptions>>().Value;
+            client.BaseAddress = new Uri(opts.BaseUrl);
+            client.DefaultRequestHeaders.Accept.Add(
+                new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+        })
+        .AddHttpMessageHandler<CardMarketAuthHandler>();
+
+        // ---- TCGPlayer HttpClient (OAuth 2.0 CC via TcgPlayerTokenHandler) ----
+        services.Configure<TcgPlayerOptions>(config.GetSection(TcgPlayerOptions.SectionName));
+        services.AddScoped<TcgPlayerTokenHandler>();
+        services.AddHttpClient<ITcgPlayerClient, TcgPlayerClient>((sp, client) =>
+        {
+            var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<TcgPlayerOptions>>().Value;
+            client.BaseAddress = new Uri(opts.BaseUrl);
+            client.DefaultRequestHeaders.Accept.Add(
+                new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+        })
+        .AddHttpMessageHandler<TcgPlayerTokenHandler>();
+
+        // ---- Aggregator ----
+        services.AddScoped<DataAggregator>();
+
+        // ---- Scraping pipeline (Playwright + Ollama) ----
+        services.Configure<OllamaOptions>(config.GetSection(OllamaOptions.SectionName));
+        services.AddSingleton<IWebScraper, PlaywrightScraper>();
+        services.AddScoped<ILlmExtractor, OllamaLlmExtractor>();
+        services.AddScoped<ScrapingPipeline>();
 
         services.AddScoped<DbInitializer>();
 

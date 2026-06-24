@@ -79,6 +79,8 @@ public sealed class DbInitializer
         Permissions.RolesRead          => "View roles",
         Permissions.RolesWrite         => "Create / update custom roles",
         Permissions.RolesDelete        => "Delete custom roles",
+        Permissions.CardsRead          => "View Pokemon cards and sets",
+        Permissions.CardsSync          => "Trigger synchronization with PokemonTCG API",
         _ => code,
     };
 
@@ -151,6 +153,7 @@ public sealed class DbInitializer
              {
                  Permissions.UsersRead,
                  Permissions.RolesRead,
+                 Permissions.CardsRead,
              }),
         };
 

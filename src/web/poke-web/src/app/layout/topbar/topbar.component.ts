@@ -1,14 +1,12 @@
-import { Component, Input, Output, EventEmitter, inject, signal, OnInit, computed, effect } from '@angular/core';
-import { NgClass, NgIf, NgFor } from '@angular/common';
+import { Component, Input, Output, EventEmitter, inject, signal } from '@angular/core';
+import { NgClass, NgIf } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthStore } from '@core/auth/auth.store';
-import { EstablishmentStore } from '@features/settings/establishments/establishment.store';
-import { EstablishmentDto } from '@features/settings/establishments/establishment.models';
 
 @Component({
   selector: 'app-topbar',
   standalone: true,
-  imports: [NgClass, NgIf, NgFor],
+  imports: [NgClass, NgIf],
   template: `
     <header class="topbar">
 
@@ -26,46 +24,6 @@ import { EstablishmentDto } from '@features/settings/establishments/establishmen
 
       <!-- Spacer -->
       <div class="topbar__spacer"></div>
-
-      <!-- Établissement selector (admin only) -->
-      <div *ngIf="isAdmin()" class="topbar__est-selector">
-        <button
-          class="est-btn"
-          (click)="toggleEstablishmentMenu()"
-          type="button"
-          aria-haspopup="true"
-          [attr.aria-expanded]="estMenuOpen()"
-        >
-          <span class="est-btn__icon" aria-hidden="true">🏪</span>
-          <span class="est-btn__label">
-            {{ activeEstablishmentName() ?? 'Sélectionner un établissement' }}
-          </span>
-          <span class="est-btn__chevron" aria-hidden="true">▾</span>
-        </button>
-
-        <div *ngIf="estMenuOpen()" class="est-menu" role="menu">
-          <button
-            *ngFor="let est of estStore.activeEstablishments()"
-            class="est-menu__item"
-            [class.est-menu__item--active]="estStore.selected()?.id === est.id"
-            (click)="selectEstablishment(est)"
-            role="menuitem"
-            type="button"
-          >
-            <span class="est-dot" aria-hidden="true">🏪</span>
-            {{ est.name }}
-          </button>
-
-          <div *ngIf="estStore.activeEstablishments().length > 0" class="est-menu__divider" role="separator"></div>
-
-          <button class="est-menu__item est-menu__item--add" (click)="goToEstablishmentSettings()" role="menuitem" type="button">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M12 5v14M5 12h14"/>
-            </svg>
-            Gérer les établissements
-          </button>
-        </div>
-      </div>
 
       <!-- User avatar + dropdown -->
       <div class="topbar__user">
@@ -90,6 +48,9 @@ import { EstablishmentDto } from '@features/settings/establishments/establishmen
             <span class="user-menu__email">{{ authStore.user()?.email }}</span>
           </div>
           <div class="user-menu__divider" role="separator"></div>
+          <button class="user-menu__item" (click)="goToProfile()" role="menuitem" type="button">
+            <span aria-hidden="true">👤</span> Mon profil
+          </button>
           <button class="user-menu__item user-menu__item--danger" (click)="logout()" role="menuitem" type="button">
             <span aria-hidden="true">⎋</span> Déconnexion
           </button>
@@ -97,7 +58,7 @@ import { EstablishmentDto } from '@features/settings/establishments/establishmen
       </div>
 
       <!-- Overlay to close dropdowns -->
-      <div *ngIf="userMenuOpen() || estMenuOpen()" class="topbar__overlay" (click)="closeMenus()" aria-hidden="true"></div>
+      <div *ngIf="userMenuOpen()" class="topbar__overlay" (click)="closeMenus()" aria-hidden="true"></div>
 
     </header>
   `,
@@ -270,63 +231,26 @@ import { EstablishmentDto } from '@features/settings/establishments/establishmen
     }
   `],
 })
-export class TopbarComponent implements OnInit {
+export class TopbarComponent {
   @Input() sidebarCollapsed = false;
   @Output() toggleSidebar = new EventEmitter<void>();
 
   readonly authStore = inject(AuthStore);
-  readonly estStore = inject(EstablishmentStore);
   private readonly router = inject(Router);
 
   readonly userMenuOpen = signal(false);
-  readonly estMenuOpen  = signal(false);
-
-  // Label affiché dans le bouton — réactif via le store
-  readonly activeEstablishmentName = computed(() => this.estStore.selected()?.name ?? null);
-
-  readonly isAdmin = computed(() =>
-    this.authStore.user()?.roles?.includes('admin') ?? false
-  );
-
-  constructor() {
-    // Dès que la liste est chargée, auto-sélectionner le premier si rien n'est sélectionné
-    effect(() => {
-      const active = this.estStore.activeEstablishments();
-      if (active.length > 0 && !this.estStore.selected()) {
-        this.estStore.select(active[0]);
-      }
-    });
-  }
-
-  ngOnInit(): void {
-    if (this.isAdmin() && !this.estStore.loading() && this.estStore.establishments().length === 0) {
-      this.estStore.load();
-    }
-  }
-
-  selectEstablishment(est: EstablishmentDto): void {
-    this.estStore.select(est);
-    this.closeMenus();
-  }
 
   toggleUserMenu(): void {
     this.userMenuOpen.update(v => !v);
-    this.estMenuOpen.set(false);
-  }
-
-  toggleEstablishmentMenu(): void {
-    this.estMenuOpen.update(v => !v);
-    this.userMenuOpen.set(false);
   }
 
   closeMenus(): void {
     this.userMenuOpen.set(false);
-    this.estMenuOpen.set(false);
   }
 
-  goToEstablishmentSettings(): void {
+  goToProfile(): void {
     this.closeMenus();
-    this.router.navigate(['/settings']);
+    this.router.navigate(['/profil']);
   }
 
   logout(): void {
