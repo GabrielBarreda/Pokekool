@@ -84,7 +84,7 @@ internal sealed class CardMarketPriceRepository : ICardMarketPriceRepository
     }
 
     public async Task<IReadOnlyList<Guid>> GetStaleCardIdsAsync(
-        string source, int olderThanHours, CancellationToken ct = default)
+        string source, int olderThanHours, Guid? setId = null, CancellationToken ct = default)
     {
         var cutoff = DateTime.UtcNow.AddHours(-olderThanHours);
 
@@ -95,10 +95,11 @@ internal sealed class CardMarketPriceRepository : ICardMarketPriceRepository
             .ToListAsync(ct))
             .ToHashSet();
 
-        // Toutes les cartes sauf les fraîches
-        return await _db.PokemonCards
-            .Where(c => !freshIds.Contains(c.Id))
-            .Select(c => c.Id)
-            .ToListAsync(ct);
+        // Toutes les cartes (filtrées par set si demandé) sauf les fraîches
+        var query = _db.PokemonCards.Where(c => !freshIds.Contains(c.Id));
+        if (setId.HasValue)
+            query = query.Where(c => c.SetId == setId.Value);
+
+        return await query.Select(c => c.Id).ToListAsync(ct);
     }
 }

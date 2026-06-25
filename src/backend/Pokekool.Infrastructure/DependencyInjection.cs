@@ -13,6 +13,7 @@ using Pokekool.Infrastructure.DataProviders.TcgPlayer;
 using Pokekool.Application.DataCollection;
 using Pokekool.Domain.Repositories;
 using Pokekool.Infrastructure.Authentication;
+using Pokekool.Infrastructure.BackgroundServices;
 using Pokekool.Infrastructure.DataProviders.PokemonTcg;
 using Pokekool.Infrastructure.DataProviders.PriceCharting;
 using Pokekool.Infrastructure.DataProviders.Psa;
@@ -74,6 +75,8 @@ public static class DependencyInjection
         services.AddScoped<ICardMarketPriceRepository, CardMarketPriceRepository>();
         services.AddScoped<ICardPopulationRepository, CardPopulationRepository>();
         services.AddScoped<IProviderSettingRepository, ProviderSettingRepository>();
+        services.AddScoped<IUserCollectionRepository, UserCollectionRepository>();
+        services.AddScoped<IDashboardRepository, DashboardRepository>();
 
         // ---- PokemonTCG HTTP client (bas niveau, utilisé par PokemonTcgProvider) ----
         services.Configure<PokemonTcgOptions>(config.GetSection(PokemonTcgOptions.SectionName));
@@ -123,6 +126,12 @@ public static class DependencyInjection
                 new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
         })
         .AddHttpMessageHandler<TcgPlayerTokenHandler>();
+
+        // ---- Sync progress + schedule (singletons) ----
+        services.AddSingleton<SyncProgressService>();
+        services.AddSingleton<ISyncProgressReporter>(sp => sp.GetRequiredService<SyncProgressService>());
+        services.AddSingleton<SyncScheduleState>();
+        services.AddHostedService<ScheduledSyncService>();
 
         // ---- Aggregator ----
         services.AddScoped<DataAggregator>();

@@ -14,8 +14,10 @@ public interface ICardMarketPriceRepository
     /// Retourne les IDs de toutes les cartes qui n'ont pas de prix récent pour <paramref name="source"/>.
     /// "Périmé" = absent OU dernière mise à jour antérieure à <paramref name="olderThanHours"/> heures.
     /// </summary>
+    /// <param name="setId">Si fourni, limite la recherche aux cartes de ce set.</param>
     Task<IReadOnlyList<Guid>> GetStaleCardIdsAsync(
         string source,
         int olderThanHours,
+        Guid? setId = null,
         CancellationToken ct = default);
 }

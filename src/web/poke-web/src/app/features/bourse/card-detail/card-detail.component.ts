@@ -1,9 +1,9 @@
 import {
-  Component, Input, Output, EventEmitter, signal, computed,
-  ChangeDetectionStrategy, OnChanges, SimpleChanges,
+  Component, Input, Output, EventEmitter, signal, computed, input,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MarketCardDto, CardGradingData, GradingCompany, GradingCompanyId } from '../market.models';
+import { MarketCardDto, CardGradingData, GradeEntry, GradingCompany, GradingCompanyId } from '../market.models';
 import { GRADING_COMPANIES } from '../grading-mock.data';
 
 @Component({
@@ -57,7 +57,9 @@ import { GRADING_COMPANIES } from '../grading-mock.data';
           <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
         </svg>
         Données de gradation
-        <span class="mock-badge">Mock · API à connecter</span>
+        @if (activeData()?.lastUpdated; as dt) {
+          <span class="data-date">MAJ {{ dt | date:'dd/MM HH:mm' }}</span>
+        }
       </div>
 
       <!-- Company tabs -->
@@ -67,14 +69,23 @@ import { GRADING_COMPANIES } from '../grading-mock.data';
                   [class.company-tab--active]="activeCompany() === company.id"
                   [style.--tab-color]="company.color"
                   (click)="activeCompany.set(company.id)">
-            <span class="tab-dot" [style.background]="company.color"></span>
+            <span class="tab-dot"
+                  [style.background]="hasDataFor(company.id) ? company.color : 'var(--color-neutral-300)'"
+                  [title]="hasDataFor(company.id) ? '' : 'Pas de données'"></span>
             {{ company.name }}
           </button>
         }
       </div>
 
       <!-- Active company content -->
-      @if (activeData(); as data) {
+      @if (gradingLoading()) {
+        <div class="grading-state">
+          <svg class="grading-state__spinner" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+          </svg>
+          Chargement…
+        </div>
+      } @else if (activeData(); as data) {
         <!-- Summary chips -->
         <div class="summary-row">
           <div class="summary-chip">
@@ -201,38 +212,63 @@ import { GRADING_COMPANIES } from '../grading-mock.data';
               </tr>
             </thead>
             <tbody>
-              @for (entry of data.entries; track entry.grade) {
-                <tr [class.row--top]="entry.grade === 10">
-                  <td>
-                    <span class="grade-badge" [class.grade-badge--gem]="entry.grade === 10">
-                      {{ entry.grade }}
-                    </span>
-                  </td>
-                  <td class="price-cell">
-                    @if (entry.marketPrice !== null) {
-                      {{ entry.marketPrice | currency:'USD':'symbol':'1.2-2' }}
-                    } @else { — }
-                  </td>
-                  <td class="price-cell price-cell--low">
-                    @if (entry.lowPrice !== null) {
-                      {{ entry.lowPrice | currency:'USD':'symbol':'1.2-2' }}
-                    } @else { — }
-                  </td>
-                  <td>
-                    <div class="pop-bar-wrap">
-                      <span class="pop-num">{{ entry.population | number }}</span>
-                      <div class="pop-bar">
-                        <div class="pop-bar__fill"
-                             [style.width.%]="popPct(data, entry.population)"
-                             [style.background]="activeCompanyObj()?.color"></div>
+              @for (grade of ALL_GRADES; track grade) {
+                @if (gradeEntry(data, grade); as entry) {
+                  <tr [class.row--top]="entry.grade === 10">
+                    <td>
+                      <span class="grade-badge" [class.grade-badge--gem]="entry.grade === 10">
+                        {{ entry.grade }}
+                      </span>
+                    </td>
+                    <td class="price-cell">
+                      @if (entry.marketPrice !== null) {
+                        {{ entry.marketPrice | currency:'USD':'symbol':'1.2-2' }}
+                      } @else { — }
+                    </td>
+                    <td class="price-cell price-cell--low">
+                      @if (entry.lowPrice !== null) {
+                        {{ entry.lowPrice | currency:'USD':'symbol':'1.2-2' }}
+                      } @else { — }
+                    </td>
+                    <td>
+                      <div class="pop-bar-wrap">
+                        <span class="pop-num">{{ entry.population | number }}</span>
+                        <div class="pop-bar">
+                          <div class="pop-bar__fill"
+                               [style.width.%]="popPct(data, entry.population)"
+                               [style.background]="activeCompanyObj()?.color"></div>
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td class="pct-cell">{{ popPct(data, entry.population) | number:'1.1-1' }}%</td>
-                </tr>
+                    </td>
+                    <td class="pct-cell">{{ popPct(data, entry.population) | number:'1.1-1' }}%</td>
+                  </tr>
+                } @else {
+                  <tr class="row--no-data">
+                    <td>
+                      <span class="grade-badge">{{ grade }}</span>
+                    </td>
+                    <td colspan="4" class="no-data-cell">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                      </svg>
+                      Pas de données actuellement
+                    </td>
+                  </tr>
+                }
               }
             </tbody>
           </table>
+        </div>
+      } @else {
+        <!-- Aucune donnée pour cette société -->
+        <div class="grading-state grading-state--empty">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <span>Pas de données actuellement</span>
+          <span class="grading-state__sub">{{ activeCompanyObj()?.name }} — aucun prix de gradation disponible</span>
         </div>
       }
     </aside>
@@ -297,10 +333,9 @@ import { GRADING_COMPANIES } from '../grading-mock.data';
       font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold);
       color: var(--color-text-primary);
     }
-    .mock-badge {
+    .data-date {
       margin-left: auto; font-size: var(--font-size-xs); font-weight: var(--font-weight-regular);
-      background: var(--color-semantic-warning-subtle); border: 1px solid var(--color-semantic-warning);
-      color: #7c5900; border-radius: var(--radius-full); padding: 2px 8px;
+      color: var(--color-text-muted);
     }
 
     /* ── Company tabs ── */
@@ -372,15 +407,42 @@ import { GRADING_COMPANIES } from '../grading-mock.data';
     .pop-bar { flex: 1; height: 6px; background: var(--color-neutral-200); border-radius: 3px; overflow: hidden; }
     .pop-bar__fill { height: 100%; border-radius: 3px; transition: width var(--duration-normal); }
     .pct-cell { font-size: var(--font-size-xs); color: var(--color-text-muted); }
+
+    /* ── No-data rows ── */
+    .row--no-data td { padding: var(--space-2) var(--space-3); }
+    .no-data-cell {
+      display: flex; align-items: center; gap: var(--space-2);
+      font-size: var(--font-size-xs); color: var(--color-text-muted);
+      font-style: italic;
+      svg { color: var(--color-semantic-warning); flex-shrink: 0; }
+    }
+
+    /* ── Loading / empty state ── */
+    .grading-state {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: var(--space-3); padding: var(--space-12) var(--space-6);
+      color: var(--color-text-muted); font-size: var(--font-size-sm);
+      text-align: center;
+      svg { color: var(--color-brand-primary); }
+      &__spinner {
+        animation: spin 1s linear infinite;
+        @keyframes spin { to { transform: rotate(360deg) } }
+      }
+      &__sub { font-size: var(--font-size-xs); color: var(--color-text-muted); }
+      &--empty svg { color: var(--color-semantic-warning); }
+    }
   `],
 })
-export class CardDetailComponent implements OnChanges {
+export class CardDetailComponent {
   @Input({ required: true }) card!: MarketCardDto;
-  @Input({ required: true }) gradingData!: CardGradingData[];
+  // Signal inputs — réactifs dans computed() sans ngOnChanges
+  readonly gradingData   = input.required<CardGradingData[]>();
+  readonly gradingLoading = input<boolean>(false);
   @Output() closed = new EventEmitter<void>();
 
   readonly companies: GradingCompany[] = GRADING_COMPANIES;
   readonly activeCompany = signal<GradingCompanyId>('PSA');
+  readonly ALL_GRADES = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 
   // Chart dimensions
   readonly CHART_W = 560;
@@ -392,7 +454,7 @@ export class CardDetailComponent implements OnChanges {
   readonly BAR_GAP = 3;
 
   readonly activeData = computed(() =>
-    this.gradingData.find(d => d.company === this.activeCompany()) ?? null
+    this.gradingData().find(d => d.company === this.activeCompany()) ?? null
   );
 
   readonly activeCompanyObj = computed(() =>
@@ -407,12 +469,6 @@ export class CardDetailComponent implements OnChanges {
     const entries = this.activeData()?.entries ?? [];
     return Math.max(...entries.map(e => e.marketPrice ?? 0), 0);
   });
-
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['gradingData']) {
-      this.activeCompany.set('PSA');
-    }
-  }
 
   readonly barWidth = computed(() => {
     const usable = this.CHART_W - this.MARGIN_LEFT - this.MARGIN_RIGHT;
@@ -449,6 +505,14 @@ export class CardDetailComponent implements OnChanges {
     const magnitude = Math.pow(10, Math.floor(Math.log10(rough)));
     const candidates = [1, 2, 5, 10].map(x => x * magnitude);
     return candidates.find(c => c >= rough) ?? candidates[candidates.length - 1];
+  }
+
+  gradeEntry(data: CardGradingData, grade: number): GradeEntry | undefined {
+    return data.entries.find(e => e.grade === grade);
+  }
+
+  hasDataFor(companyId: GradingCompanyId): boolean {
+    return this.gradingData().some(d => d.company === companyId);
   }
 
   gradePrice(data: CardGradingData, grade: number): number | null {

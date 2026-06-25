@@ -4,6 +4,7 @@ using Pokekool.API.Authorization;
 using Pokekool.Application.Users.Commands;
 using Pokekool.Application.Users.Queries;
 using Pokekool.Shared.Constants;
+using Pokekool.Shared.Dtos.Common;
 using Pokekool.Shared.Dtos.Users;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -18,12 +19,20 @@ public sealed class UsersController : BaseApiController
 
     [HttpGet]
     [RequirePermission(Permissions.UsersRead)]
-    [ProducesResponseType(typeof(IReadOnlyList<UserDto>), StatusCodes.Status200OK)]
-    [SwaggerOperation(Summary = "List users")]
-    public async Task<ActionResult<IReadOnlyList<UserDto>>> List(
-        [FromQuery] bool includeInactive = false,
+    [ProducesResponseType(typeof(PagedResult<UserSummaryDto>), StatusCodes.Status200OK)]
+    [SwaggerOperation(Summary = "List users (paginé, filtré)")]
+    public async Task<ActionResult<PagedResult<UserSummaryDto>>> List(
+        [FromQuery] string? search = null,
+        [FromQuery] string? roleCode = null,
+        [FromQuery] bool? hasPendingMessages = null,
+        [FromQuery] bool? recentOnly = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 30,
         CancellationToken cancellationToken = default)
-        => Ok(await _mediator.Send(new ListUsersQuery(includeInactive), cancellationToken));
+        => Ok(await _mediator.Send(
+            new GetUsersQuery(search, roleCode, hasPendingMessages, recentOnly, sortBy, page, pageSize),
+            cancellationToken));
 
     [HttpGet("{id:guid}")]
     [RequirePermission(Permissions.UsersRead)]

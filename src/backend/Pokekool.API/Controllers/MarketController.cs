@@ -1,10 +1,12 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Pokekool.Application.Pokemon.Queries.GetCardGrading;
 using Pokekool.Application.Pokemon.Queries.GetMarketCards;
 using Pokekool.Application.Pokemon.Queries.GetSetFilters;
 using Pokekool.Shared.Dtos.Common;
 using Pokekool.Shared.Dtos.Pokemon;
+using Asp.Versioning;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace Pokekool.API.Controllers;
@@ -49,4 +51,17 @@ public sealed class MarketController : BaseApiController
         CancellationToken ct = default)
         => Ok(await _mediator.Send(
             new GetMarketCardsQuery(setId, search, rarity, supertype, page, pageSize), ct));
+
+    /// <summary>
+    /// Données de gradation réelles pour une carte (PSA via PriceCharting).
+    /// Retourne une liste vide si aucune donnée n'est disponible.
+    /// </summary>
+    [HttpGet("cards/{cardId:guid}/grading")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(IReadOnlyList<CardGradingDto>), StatusCodes.Status200OK)]
+    [SwaggerOperation(Summary = "Données de gradation PSA pour une carte")]
+    public async Task<ActionResult<IReadOnlyList<CardGradingDto>>> GetCardGrading(
+        Guid cardId,
+        CancellationToken ct = default)
+        => Ok(await _mediator.Send(new GetCardGradingQuery(cardId), ct));
 }

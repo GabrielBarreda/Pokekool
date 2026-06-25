@@ -6,16 +6,20 @@ import { FormsModule } from '@angular/forms';
 import { MarketStore } from '../market.store';
 import { MarketCardDto } from '../market.models';
 import { CardDetailComponent } from '../card-detail/card-detail.component';
+import { SyncTickerComponent } from '../sync-ticker/sync-ticker.component';
+import { ScheduleSyncModalComponent } from '../schedule-sync-modal/schedule-sync-modal.component';
 import { PageHeaderComponent } from '@shared/ui/page-header/page-header.component';
 import { SpinnerComponent } from '@shared/ui/spinner/spinner.component';
 import { EmptyStateComponent } from '@shared/ui/empty-state/empty-state.component';
 import { PermissionStore } from '@core/auth/permission.store';
+import { SyncScheduleDto } from '../market.models';
+import { ToastService } from '@shared/services/toast.service';
 
 @Component({
   selector: 'app-market-list',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, CardDetailComponent, PageHeaderComponent, SpinnerComponent, EmptyStateComponent],
+  imports: [CommonModule, FormsModule, CardDetailComponent, SyncTickerComponent, ScheduleSyncModalComponent, PageHeaderComponent, SpinnerComponent, EmptyStateComponent],
   template: `
     <div class="page">
       <!-- Header -->
@@ -117,6 +121,16 @@ import { PermissionStore } from '@core/auth/permission.store';
                 </svg>
                 Prix · PriceCharting
               }
+            </button>
+
+            <!-- Programmer sync global -->
+            <button class="sync-btn sync-btn--schedule"
+                    [disabled]="store.isSyncing()"
+                    (click)="showScheduleModal.set(true)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+              Programmer (global)
             </button>
 
             <!-- Sync Population PSA -->
@@ -229,6 +243,10 @@ import { PermissionStore } from '@core/auth/permission.store';
           <app-empty-state icon="🔍" title="Aucune carte"
             description="Modifiez vos filtres ou choisissez un autre set." />
         } @else {
+          <!-- Ticker SSE pendant sync -->
+          @if (store.syncingPrices()) {
+            <app-sync-ticker />
+          }
           <!-- Grid -->
           <div class="card-grid" [class.card-grid--loading]="store.loadingCards()">
             @for (card of store.cards(); track card.id) {
@@ -304,11 +322,19 @@ import { PermissionStore } from '@core/auth/permission.store';
       </div>
     </div>
 
+    <!-- Modal programmer sync -->
+    @if (showScheduleModal()) {
+      <app-schedule-sync-modal
+        (closed)="showScheduleModal.set(false)"
+        (scheduled)="onScheduled($event)" />
+    }
+
     <!-- Card detail drawer -->
     @if (store.selectedCard()) {
       <app-card-detail
         [card]="store.selectedCard()!"
         [gradingData]="store.gradingData()"
+        [gradingLoading]="store.gradingLoading()"
         (closed)="store.selectCard(null)" />
     }
   `,
@@ -390,6 +416,12 @@ import { PermissionStore } from '@core/auth/permission.store';
       border-color: var(--color-border-default);
       color: var(--color-text-primary);
       &:not(:disabled):hover { border-color: var(--color-brand-primary); color: var(--color-brand-primary); }
+    }
+    .sync-btn--schedule {
+      background: var(--color-surface-raised);
+      border-color: var(--color-border-default);
+      color: var(--color-text-muted);
+      &:not(:disabled):hover { border-color: var(--color-semantic-info); color: var(--color-semantic-info); }
     }
 
     .sync-result {
@@ -511,6 +543,8 @@ import { PermissionStore } from '@core/auth/permission.store';
 export class MarketListComponent implements OnInit {
   readonly store = inject(MarketStore);
   private readonly permissions = inject(PermissionStore);
+  private readonly toast = inject(ToastService);
+  readonly showScheduleModal = signal(false);
 
   readonly canSync = computed(() => this.permissions.hasPermission()('cards:sync'));
 
@@ -602,16 +636,27 @@ export class MarketListComponent implements OnInit {
   }
 
   onSyncCatalog(): void {
-    this.store.syncCatalog(true);
+    const set = this.store.selectedSet();
+    // Sync du set sélectionné (force refresh pour récupérer les cartes manquantes)
+    this.store.syncCatalog({ forceRefresh: true, setTcgId: set?.tcgId ?? undefined });
   }
 
   onSyncPrices(): void {
-    const cardIds = this.store.cards().map(c => c.id);
-    this.store.syncPrices(cardIds);
+    const set = this.store.selectedSet();
+    // Sync de toutes les cartes du set (filtre de fraîcheur 24h par défaut)
+    this.store.syncPrices({ setId: set?.id ?? undefined });
   }
 
   onSyncPopulation(): void {
     const cardIds = this.store.cards().map(c => c.id);
     this.store.syncPopulation(cardIds);
+  }
+
+  onScheduled(dto: SyncScheduleDto): void {
+    const at = dto.nextRunAt
+      ? new Date(dto.nextRunAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+      : dto.scheduledTime ?? '';
+    const recur = dto.isRecurring ? ' (récurrent)' : '';
+    this.toast.success(`Sync planifié à ${at}${recur}`);
   }
 }

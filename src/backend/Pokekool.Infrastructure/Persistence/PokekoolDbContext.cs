@@ -19,6 +19,7 @@ public sealed class PokekoolDbContext : DbContext
     public DbSet<CardMarketPrice> CardMarketPrices => Set<CardMarketPrice>();
     public DbSet<CardPopulation> CardPopulations => Set<CardPopulation>();
     public DbSet<ProviderSetting> ProviderSettings => Set<ProviderSetting>();
+    public DbSet<UserCollection> UserCollections => Set<UserCollection>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -14,6 +14,12 @@ public sealed class Permission
 
     private Permission() { }
 
+    public void UpdateDescription(string description)
+    {
+        if (!string.IsNullOrWhiteSpace(description))
+            Description = description.Trim();
+    }
+
     public static Permission Create(string code, string category, string description)
     {
         if (string.IsNullOrWhiteSpace(code))

@@ -67,6 +67,12 @@ internal sealed class PokemonCardRepository : IPokemonCardRepository
     public Task<int> CountAsync(CancellationToken ct = default)
         => _db.PokemonCards.CountAsync(ct);
 
+    public async Task<IReadOnlyList<Guid>> GetIdsBySetIdAsync(Guid setId, CancellationToken ct = default)
+        => await _db.PokemonCards
+            .Where(c => c.SetId == setId)
+            .Select(c => c.Id)
+            .ToListAsync(ct);
+
     public async Task<(IReadOnlyList<string> Rarities, IReadOnlyList<string> Supertypes)> GetDistinctFiltersAsync(
         Guid setId, CancellationToken ct = default)
     {

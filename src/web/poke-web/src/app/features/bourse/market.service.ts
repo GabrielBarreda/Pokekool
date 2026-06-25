@@ -1,14 +1,16 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, NgZone } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
   MarketCardDto, PagedResult, PokemonSetDto, MarketFilters, SetFiltersDto,
   SyncCatalogResultDto, SyncPricesResultDto, SyncPopulationResultDto,
+  CardGradingApiDto, SyncScheduleDto, SyncProgressEvent,
 } from './market.models';
 
 @Injectable({ providedIn: 'root' })
 export class MarketService {
   private readonly http = inject(HttpClient);
+  private readonly zone = inject(NgZone);
 
   getSets(): Observable<PokemonSetDto[]> {
     return this.http.get<PokemonSetDto[]>('/api/v1/pokemon/sets');
@@ -33,18 +35,22 @@ export class MarketService {
     );
   }
 
-  syncCatalog(forceRefresh = false): Observable<SyncCatalogResultDto> {
-    return this.http.post<SyncCatalogResultDto>(
-      `/api/v1/admin/sync/catalog?forceRefresh=${forceRefresh}`,
-      {}
-    );
+  syncCatalog(forceRefresh = false, setTcgId?: string): Observable<SyncCatalogResultDto> {
+    let params = new HttpParams().set('forceRefresh', forceRefresh);
+    if (setTcgId) params = params.set('setTcgId', setTcgId);
+    return this.http.post<SyncCatalogResultDto>('/api/v1/admin/sync/catalog', {}, { params });
   }
 
-  syncPrices(cardIds: string[]): Observable<SyncPricesResultDto> {
-    return this.http.post<SyncPricesResultDto>(
-      '/api/v1/admin/sync/prices',
-      { cardIds }
-    );
+  syncPrices(opts: { cardIds?: string[]; setId?: string; stalenessHours?: number } = {}): Observable<SyncPricesResultDto> {
+    return this.http.post<SyncPricesResultDto>('/api/v1/admin/sync/prices', {
+      cardIds: opts.cardIds ?? null,
+      setId:   opts.setId   ?? null,
+      stalenessHours: opts.stalenessHours ?? 24,
+    });
+  }
+
+  getCardGrading(cardId: string): Observable<CardGradingApiDto[]> {
+    return this.http.get<CardGradingApiDto[]>(`/api/v1/market/cards/${cardId}/grading`);
   }
 
   syncPopulation(cardIds: string[]): Observable<SyncPopulationResultDto> {
@@ -52,5 +58,41 @@ export class MarketService {
       '/api/v1/admin/sync/population',
       { cardIds }
     );
+  }
+
+  // ── Sync planifié ──────────────────────────────────────────────────────────
+
+  getSchedule(): Observable<SyncScheduleDto> {
+    return this.http.get<SyncScheduleDto>('/api/v1/admin/sync/schedule');
+  }
+
+  scheduleSync(time: string, isRecurring: boolean): Observable<SyncScheduleDto> {
+    return this.http.post<SyncScheduleDto>('/api/v1/admin/sync/schedule', { time, isRecurring });
+  }
+
+  cancelSchedule(): Observable<SyncScheduleDto> {
+    return this.http.delete<SyncScheduleDto>('/api/v1/admin/sync/schedule');
+  }
+
+  // ── SSE progress ───────────────────────────────────────────────────────────
+
+  /** Ouvre une connexion SSE et retourne un Observable d'événements de progression. */
+  connectProgressStream(): Observable<SyncProgressEvent> {
+    return new Observable<SyncProgressEvent>(observer => {
+      const source = new EventSource('/api/v1/admin/sync/progress');
+
+      source.onmessage = (e) => {
+        try {
+          const evt: SyncProgressEvent = JSON.parse(e.data);
+          this.zone.run(() => observer.next(evt));
+        } catch { /* ignore malformed */ }
+      };
+
+      source.onerror = () => {
+        // L'EventSource se reconnecte automatiquement — on laisse faire
+      };
+
+      return () => source.close();
+    });
   }
 }

@@ -6,8 +6,9 @@ import {
 import { PageHeaderComponent } from '@shared/ui/page-header/page-header.component';
 import { AppearanceSettingsComponent } from './appearance/appearance-settings.component';
 import { ProviderSettingsComponent } from './providers/provider-settings.component';
+import { ProviderFreeSettingsComponent } from './providers/provider-free-settings.component';
 
-type Section = 'appearance' | 'providers';
+type Section = 'appearance' | 'providers-free' | 'providers';
 
 interface NavItem {
   id: Section;
@@ -16,8 +17,9 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'appearance', label: 'Apparence',  icon: '🎨' },
-  { id: 'providers',  label: 'Providers',  icon: '🔌' },
+  { id: 'appearance',     label: 'Apparence',       icon: '🎨' },
+  { id: 'providers-free', label: 'Providers Free',  icon: '🆓' },
+  { id: 'providers',      label: 'Providers',        icon: '🔌' },
 ];
 
 @Component({
@@ -28,9 +30,10 @@ const NAV_ITEMS: NavItem[] = [
     PageHeaderComponent,
     AppearanceSettingsComponent,
     ProviderSettingsComponent,
+    ProviderFreeSettingsComponent,
   ],
   template: `
-    <div class="settings-page">
+    <div class="settings-page" [class.settings-page--wide]="activeSection() === 'providers-free'">
       <app-page-header
         title="Paramètres"
         subtitle="Personnalisation et configuration des intégrations"
@@ -57,6 +60,9 @@ const NAV_ITEMS: NavItem[] = [
           @if (activeSection() === 'appearance') {
             <app-appearance-settings />
           }
+          @if (activeSection() === 'providers-free') {
+            <app-provider-free-settings />
+          }
           @if (activeSection() === 'providers') {
             <app-provider-settings />
           }
@@ -68,6 +74,10 @@ const NAV_ITEMS: NavItem[] = [
     .settings-page {
       padding: var(--space-6);
       max-width: 1000px;
+      transition: max-width var(--duration-fast) var(--easing-standard);
+
+      /* On élargit uniquement pour l'onglet 2-colonnes */
+      &--wide { max-width: 1200px; }
     }
 
     .settings-layout {
@@ -122,7 +132,7 @@ const NAV_ITEMS: NavItem[] = [
   `],
 })
 export class SettingsComponent {
-  readonly navItems     = NAV_ITEMS;
+  readonly navItems      = NAV_ITEMS;
   readonly activeSection = signal<Section>('appearance');
 
   setSection(section: Section): void {

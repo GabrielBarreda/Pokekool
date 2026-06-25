@@ -5,12 +5,11 @@ import { inject, computed } from '@angular/core';
 import { pipe, switchMap, tap, debounceTime, distinctUntilChanged } from 'rxjs';
 import {
   MarketCardDto, PokemonSetDto, MarketFilters, SetFiltersDto,
-  CardGradingData, GradingCompanyId,
+  CardGradingData, GradingCompanyId, CardGradingApiDto,
   SyncCatalogResultDto, SyncPricesResultDto, SyncPopulationResultDto,
 } from './market.models';
 import { MarketService } from './market.service';
 import { ToastService } from '@shared/services/toast.service';
-import { mockGradingData } from './grading-mock.data';
 
 export interface SyncResult {
   type: 'prices' | 'population';
@@ -32,6 +31,7 @@ export interface MarketState {
   filters: MarketFilters;
   selectedCard: MarketCardDto | null;
   gradingData: CardGradingData[];
+  gradingLoading: boolean;
   loadingSets: boolean;
   loadingCards: boolean;
   syncingCatalog: boolean;
@@ -60,6 +60,7 @@ const initialState: MarketState = {
   filters: initialFilters,
   selectedCard: null,
   gradingData: [],
+  gradingLoading: false,
   loadingSets: false,
   loadingCards: false,
   syncingCatalog: false,
@@ -91,8 +92,9 @@ export const MarketStore = signalStore(
 
   withMethods((store, svc = inject(MarketService), toast = inject(ToastService)) => {
     let _loadSets: (value: void) => void;
-    let _syncCatalog: (value: boolean) => void;
+    let _syncCatalog: (value: { forceRefresh: boolean; setTcgId?: string }) => void;
     let _loadSetFilters: (value: string) => void;
+    let loadGrading: (cardId: string) => void;
 
     _loadSets = rxMethod<void>(
       pipe(
@@ -113,7 +115,7 @@ export const MarketStore = signalStore(
                 if (firstSetId) {
                   _loadSetFilters(firstSetId);
                 } else {
-                  _syncCatalog(false);
+                  _syncCatalog({ forceRefresh: false });
                 }
               },
               error: () => {
@@ -126,17 +128,20 @@ export const MarketStore = signalStore(
       )
     );
 
-    _syncCatalog = rxMethod<boolean>(
+    _syncCatalog = rxMethod<{ forceRefresh: boolean; setTcgId?: string }>(
       pipe(
         tap(() => patchState(store, { syncingCatalog: true })),
-        switchMap(forceRefresh =>
-          svc.syncCatalog(forceRefresh).pipe(
+        switchMap(({ forceRefresh, setTcgId }) =>
+          svc.syncCatalog(forceRefresh, setTcgId).pipe(
             tapResponse({
               next: (res: SyncCatalogResultDto) => {
                 patchState(store, { syncingCatalog: false });
                 _loadSets();
+                const label = setTcgId ? `set ${setTcgId}` : 'catalogue';
                 if (res.setsImported > 0 || res.cardsImported > 0) {
-                  toast.success(`Catalogue sync — ${res.setsImported} sets, ${res.cardsImported} cartes`);
+                  toast.success(`Sync ${label} — ${res.setsImported} sets, ${res.cardsImported} cartes`);
+                } else {
+                  toast.success(`Sync ${label} — déjà à jour`);
                 }
               },
               error: () => {
@@ -163,6 +168,33 @@ export const MarketStore = signalStore(
                 // Non bloquant — les filtres restent tous activés
                 patchState(store, { availableRarities: [], availableSupertypes: [] });
               },
+            })
+          )
+        )
+      )
+    );
+
+    loadGrading = rxMethod<string>(
+      pipe(
+        switchMap(cardId =>
+          svc.getCardGrading(cardId).pipe(
+            tapResponse({
+              next: (real: CardGradingApiDto[]) => {
+                const gradingData: CardGradingData[] = real.map(d => ({
+                  cardId,
+                  company: d.company as GradingCompanyId,
+                  lastUpdated: new Date(d.lastUpdated),
+                  entries: d.entries.map(e => ({
+                    grade: e.grade,
+                    label: e.label,
+                    marketPrice: e.marketPrice,
+                    lowPrice: e.lowPrice,
+                    population: e.population,
+                  })),
+                }));
+                patchState(store, { gradingData, gradingLoading: false });
+              },
+              error: () => patchState(store, { gradingLoading: false }),
             })
           )
         )
@@ -214,11 +246,11 @@ export const MarketStore = signalStore(
 
     syncCatalog: _syncCatalog,
 
-    syncPrices: rxMethod<string[]>(
+    syncPrices: rxMethod<{ setId?: string; cardIds?: string[]; stalenessHours?: number }>(
       pipe(
         tap(() => patchState(store, { syncingPrices: true, lastSyncResult: null })),
-        switchMap(cardIds =>
-          svc.syncPrices(cardIds).pipe(
+        switchMap(opts =>
+          svc.syncPrices(opts).pipe(
             tapResponse({
               next: (res: SyncPricesResultDto) => {
                 const result: SyncResult = {
@@ -276,6 +308,8 @@ export const MarketStore = signalStore(
       )
     ),
 
+    loadGrading,
+
     dismissSyncResult(): void {
       patchState(store, { lastSyncResult: null });
     },
@@ -293,8 +327,10 @@ export const MarketStore = signalStore(
     selectCard(card: MarketCardDto | null): void {
       patchState(store, { selectedCard: card });
       if (card) {
-        const data = mockGradingData(card.id);
-        patchState(store, { gradingData: data });
+        patchState(store, { gradingData: [], gradingLoading: true });
+        loadGrading(card.id);
+      } else {
+        patchState(store, { gradingData: [], gradingLoading: false });
       }
     },
 

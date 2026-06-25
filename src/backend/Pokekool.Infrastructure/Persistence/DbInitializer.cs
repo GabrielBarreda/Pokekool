@@ -46,22 +46,28 @@ public sealed class DbInitializer
     // ============================================================
     private async Task SeedPermissionsCatalogAsync(CancellationToken ct)
     {
-        var existingCodes = await _db.Permissions.Select(p => p.Code).ToListAsync(ct);
-        var existing = existingCodes.ToHashSet();
+        var existing = await _db.Permissions.ToDictionaryAsync(p => p.Code, ct);
 
         var added = 0;
+        var updated = 0;
         foreach (var code in Permissions.All)
         {
-            if (existing.Contains(code)) continue;
-            var perm = Permission.Create(code, Permissions.CategoryOf(code), DescribePermission(code));
-            await _db.Permissions.AddAsync(perm, ct);
-            added++;
+            var desc = DescribePermission(code);
+            if (existing.TryGetValue(code, out var perm))
+            {
+                if (perm.Description != desc) { perm.UpdateDescription(desc); updated++; }
+            }
+            else
+            {
+                await _db.Permissions.AddAsync(Permission.Create(code, Permissions.CategoryOf(code), desc), ct);
+                added++;
+            }
         }
 
-        if (added > 0)
+        if (added > 0 || updated > 0)
         {
             await _db.SaveChangesAsync(ct);
-            _logger.LogInformation("Permissions catalog seeded: {Count} new permissions.", added);
+            _logger.LogInformation("Permissions catalog: {Added} ajoutées, {Updated} mises à jour.", added, updated);
         }
         else
         {
@@ -71,16 +77,16 @@ public sealed class DbInitializer
 
     private static string DescribePermission(string code) => code switch
     {
-        Permissions.UsersRead          => "View users",
-        Permissions.UsersWrite         => "Create / update users",
-        Permissions.UsersDelete        => "Delete users",
-        Permissions.UsersResetPassword => "Reset a user password",
-        Permissions.UsersAssignRoles   => "Assign roles to users",
-        Permissions.RolesRead          => "View roles",
-        Permissions.RolesWrite         => "Create / update custom roles",
-        Permissions.RolesDelete        => "Delete custom roles",
-        Permissions.CardsRead          => "View Pokemon cards and sets",
-        Permissions.CardsSync          => "Trigger synchronization with PokemonTCG API",
+        Permissions.UsersRead          => "Voir la liste des membres et leurs informations",
+        Permissions.UsersWrite         => "Ajouter de nouveaux membres et modifier leurs informations",
+        Permissions.UsersDelete        => "Retirer définitivement un membre de la plateforme",
+        Permissions.UsersResetPassword => "Envoyer un lien de réinitialisation de mot de passe à un membre",
+        Permissions.UsersAssignRoles   => "Changer le rôle attribué à un membre",
+        Permissions.RolesRead          => "Voir les rôles existants et leurs permissions",
+        Permissions.RolesWrite         => "Créer de nouveaux rôles et modifier ceux qui existent",
+        Permissions.RolesDelete        => "Supprimer un rôle personnalisé",
+        Permissions.CardsRead          => "Parcourir le catalogue de cartes et sets Pokémon",
+        Permissions.CardsSync          => "Lancer une mise à jour du catalogue depuis la source officielle",
         _ => code,
     };
 
@@ -94,6 +100,16 @@ public sealed class DbInitializer
             .Include(r => r.Permissions)
             .Where(r => r.IsSystem)
             .ToDictionaryAsync(r => r.Code, ct);
+
+        // Migration : renommer l'ancien rôle "user" → "client"
+        if (existing.TryGetValue("user", out var legacyUserRole) && !existing.ContainsKey(SystemRoles.Client))
+        {
+            legacyUserRole.SeedRename(SystemRoles.Client, "Client", "Rôle par défaut des clients Pokekool.");
+            await _db.SaveChangesAsync(ct);
+            existing.Remove("user");
+            existing[SystemRoles.Client] = legacyUserRole;
+            _logger.LogInformation("System role 'user' renamed to 'client'.");
+        }
 
         var defaults = SystemRoleBlueprints();
         var addedOrUpdated = 0;
@@ -138,17 +154,17 @@ public sealed class DbInitializer
         {
             (SystemRoles.SuperAdmin,
              "Super Admin",
-             "Platform role — bypasses all permission checks.",
+             "Rôle plateforme — contourne toutes les vérifications de permissions.",
              (IReadOnlyList<string>)Array.Empty<string>()),
 
             (SystemRoles.Admin,
              "Admin",
-             "Full access to all Pokekool features.",
+             "Accès complet à toutes les fonctionnalités de Pokekool.",
              (IReadOnlyList<string>)Permissions.All.ToArray()),
 
-            (SystemRoles.User,
-             "User",
-             "Standard user — read access.",
+            (SystemRoles.Client,
+             "Client",
+             "Rôle par défaut des clients Pokekool.",
              (IReadOnlyList<string>)new[]
              {
                  Permissions.UsersRead,

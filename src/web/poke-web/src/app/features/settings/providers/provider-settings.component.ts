@@ -24,8 +24,17 @@ import { SpinnerComponent } from '@shared/ui/spinner/spinner.component';
         <span>Chargement des providers…</span>
       </div>
     } @else {
+      <div class="section-header">
+        <span class="section-badge">Clé requise</span>
+        <h2 class="section-title">Fournisseurs API</h2>
+      </div>
+      <p class="section-desc">
+        Ces providers nécessitent une clé d'API ou des identifiants.
+        Certains proposent un fallback scraping gratuit en attendant.
+      </p>
+
       <div class="providers-list">
-        @for (config of providers; track config.provider) {
+        @for (config of keyProviders; track config.provider) {
           <app-provider-card [config]="config" />
         }
       </div>
@@ -41,16 +50,49 @@ import { SpinnerComponent } from '@shared/ui/spinner/spinner.component';
       padding: var(--space-6) 0;
     }
 
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-bottom: var(--space-1);
+    }
+
+    .section-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semibold);
+      background: var(--color-semantic-warning-subtle, #fef9c3);
+      color: var(--color-semantic-warning, #ca8a04);
+      flex-shrink: 0;
+    }
+
+    .section-title {
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      margin: 0;
+    }
+
+    .section-desc {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-muted);
+      margin: 0 0 var(--space-4);
+    }
+
     .providers-list {
       display: flex;
       flex-direction: column;
-      gap: var(--space-4);
+      gap: var(--space-3);
     }
   `],
 })
 export class ProviderSettingsComponent implements OnInit {
-  readonly store    = inject(SettingsStore);
-  readonly providers = PROVIDERS;
+  readonly store = inject(SettingsStore);
+
+  readonly keyProviders = PROVIDERS.filter(p => !p.noKeys);
 
   ngOnInit(): void {
     this.store.loadAllProviders();

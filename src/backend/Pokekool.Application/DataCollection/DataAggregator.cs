@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Pokekool.Application.Abstractions;
 using Pokekool.Domain.Entities.Pokemon;
 using Pokekool.Domain.Repositories;
 
@@ -18,6 +19,7 @@ public sealed class DataAggregator
     private readonly ICardMarketPriceRepository _priceRepo;
     private readonly IUnitOfWork _uow;
     private readonly ILogger<DataAggregator> _logger;
+    private readonly ISyncProgressReporter _progress;
 
     public DataAggregator(
         IEnumerable<ICardMetadataProvider> metadataProviders,
@@ -27,7 +29,8 @@ public sealed class DataAggregator
         IPokemonCardRepository cardRepo,
         ICardMarketPriceRepository priceRepo,
         IUnitOfWork uow,
-        ILogger<DataAggregator> logger)
+        ILogger<DataAggregator> logger,
+        ISyncProgressReporter progress)
     {
         _metadataProviders = metadataProviders;
         _priceProviders    = priceProviders;
@@ -37,6 +40,7 @@ public sealed class DataAggregator
         _priceRepo         = priceRepo;
         _uow               = uow;
         _logger            = logger;
+        _progress          = progress;
     }
 
     /// <summary>
@@ -45,15 +49,20 @@ public sealed class DataAggregator
     /// Idempotent : relancer ne crée pas de doublons.
     /// </summary>
     public async Task<SyncCatalogResult> SyncCatalogAsync(
-        bool forceRefresh = false, CancellationToken ct = default)
+        bool forceRefresh = false,
+        string? setTcgId  = null,
+        CancellationToken ct = default)
     {
         var provider = SelectMetadataProvider();
         if (provider is null)
             return new SyncCatalogResult(0, 0, 0, 0, ["Aucun ICardMetadataProvider enregistré."]);
 
+        // Un set ciblé implique toujours un force-refresh sur ce set
+        if (setTcgId is not null) forceRefresh = true;
+
         _logger.LogInformation(
-            "SyncCatalog démarré via le provider '{Provider}'. ForceRefresh={ForceRefresh}",
-            provider.Name, forceRefresh);
+            "SyncCatalog démarré via le provider '{Provider}'. ForceRefresh={ForceRefresh} SetTcgId={SetTcgId}",
+            provider.Name, forceRefresh, setTcgId ?? "all");
 
         var errors = new List<string>();
         int seriesUpserted = 0, setsUpserted = 0, cardsUpserted = 0, pricesUpserted = 0;
@@ -72,6 +81,14 @@ public sealed class DataAggregator
         {
             _logger.LogError(ex, "Provider '{Provider}' a échoué sur GetAllSetsAsync.", ex.ProviderName);
             return new SyncCatalogResult(0, 0, 0, 0, [ex.Message]);
+        }
+
+        // Filtre par set si ciblé
+        if (setTcgId is not null)
+        {
+            sets = sets.Where(s => s.ProviderSetId == setTcgId).ToList();
+            if (sets.Count == 0)
+                return new SyncCatalogResult(0, 0, 0, 0, [$"Set TCG introuvable : {setTcgId}"]);
         }
 
         foreach (var setData in sets)
@@ -246,6 +263,17 @@ public sealed class DataAggregator
             cardIdToTcgId[cardId] = card.TcgId;
         }
 
+        // Index card info for progress reporting (card + set already loaded above)
+        var cardInfoById = new Dictionary<Guid, PokemonCard>();
+        foreach (var cardId in ids)
+        {
+            if (cardIdToTcgId.ContainsKey(cardId))
+            {
+                var card = await _cardRepo.GetByIdAsync(cardId, ct);  // inclut Set via Include
+                if (card is not null) cardInfoById[cardId] = card;
+            }
+        }
+
         foreach (var provider in providers)
         {
             var toUpsert = new List<CardMarketPrice>();
@@ -263,11 +291,36 @@ public sealed class DataAggregator
                     _logger.LogWarning(ex, "{Message}", msg);
                     errors.Add(msg);
                     cardsFailed++;
+
+                    // Émet un event d'échec pour le ticker
+                    if (cardInfoById.TryGetValue(cardId, out var failedCard))
+                        _progress.Report(new SyncProgressEvent(
+                            failedCard.Set?.Name ?? "?",
+                            failedCard.Name,
+                            failedCard.Number,
+                            [],
+                            Success: false,
+                            DateTime.UtcNow));
                     continue;
                 }
 
                 if (priceData is not null)
+                {
                     toUpsert.Add(MapToMarketPrice(cardId, priceData));
+
+                    // Émet un event de succès pour le ticker
+                    if (cardInfoById.TryGetValue(cardId, out var successCard))
+                    {
+                        var grades = BuildGradeLabels(priceData);
+                        _progress.Report(new SyncProgressEvent(
+                            successCard.Set?.Name ?? "?",
+                            successCard.Name,
+                            successCard.Number,
+                            grades,
+                            Success: true,
+                            DateTime.UtcNow));
+                    }
+                }
             }
 
             if (toUpsert.Count > 0)
@@ -287,6 +340,16 @@ public sealed class DataAggregator
     {
         var list = _metadataProviders.ToList();
         return list.FirstOrDefault(p => p.Name == "pokemontcg") ?? list.FirstOrDefault();
+    }
+
+    private static string[] BuildGradeLabels(CardPriceData data)
+    {
+        var labels = new List<string>();
+        if (data.Psa7  is not null) labels.Add("PSA7");
+        if (data.Psa8  is not null) labels.Add("PSA8");
+        if (data.Psa9  is not null) labels.Add("PSA9");
+        if (data.Psa10 is not null) labels.Add("PSA10");
+        return labels.ToArray();
     }
 
     private static CardMarketPrice MapToMarketPrice(Guid cardId, CardPriceData data)

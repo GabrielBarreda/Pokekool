@@ -99,6 +99,15 @@ public sealed class Role : Entity
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 
+    /// <summary>Renomme le code/nom/description sans le verrou IsSystem (réservé au seed).</summary>
+    public void SeedRename(string code, string name, string? description)
+    {
+        Code        = code.Trim().ToLowerInvariant();
+        Name        = name.Trim();
+        Description = description?.Trim();
+        UpdatedAt   = DateTimeOffset.UtcNow;
+    }
+
     /// <summary>Pose les permissions sans le verrou IsSystem (réservé au seed).</summary>
     public void SeedPermissions(IEnumerable<string> codes)
     {

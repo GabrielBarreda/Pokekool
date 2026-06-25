@@ -12,11 +12,13 @@ namespace Pokekool.Application.Pokemon.Commands.SyncCardPrices;
 /// <param name="StalenessHours">
 ///   Durée de fraîcheur en heures (défaut 24h).
 ///   Une carte avec un prix de moins de X heures est skippée.
-///   Mettre à 0 pour forcer le re-sync de toutes les cartes.
+///   Mettre à 0 pour forcer le re-sync de toutes les cartes du scope.
 /// </param>
+/// <param name="SetId">Si fourni, limite le sync aux cartes de ce set (DB GUID).</param>
 public sealed record SyncCardPricesCommand(
-    IEnumerable<Guid>? CardIds       = null,
-    int                StalenessHours = 24)
+    IEnumerable<Guid>? CardIds        = null,
+    int                StalenessHours = 24,
+    Guid?              SetId          = null)
     : IRequest<SyncPricesResultDto>;
 
 public sealed record SyncPricesResultDto(

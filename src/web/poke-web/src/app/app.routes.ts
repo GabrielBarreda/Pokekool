@@ -35,10 +35,8 @@ export const routes: Routes = [
       // Collection (Phase 2)
       {
         path: 'collection',
-        loadComponent: () =>
-          import('./features/coming-soon/coming-soon.component').then(m => m.ComingSoonComponent),
-        title: 'Collection — Pokekool',
-        data: { feature: 'Collection' },
+        loadChildren: () =>
+          import('./features/collection/collection.routes').then(m => m.COLLECTION_ROUTES),
       },
 
       // Messages (Phase 2)
@@ -64,10 +62,8 @@ export const routes: Routes = [
       // Utilisateurs (admin)
       {
         path: 'utilisateurs',
-        loadComponent: () =>
-          import('./features/coming-soon/coming-soon.component').then(m => m.ComingSoonComponent),
-        title: 'Utilisateurs — Pokekool',
-        data: { feature: 'Utilisateurs' },
+        loadChildren: () =>
+          import('./features/users/users.routes').then(m => m.USERS_ROUTES),
       },
 
       // Rôles & permissions (admin)

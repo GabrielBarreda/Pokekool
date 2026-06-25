@@ -18,6 +18,7 @@ public interface IPokemonCardRepository
     Task AddRangeAsync(IEnumerable<PokemonCard> cards, CancellationToken ct = default);
     Task<IReadOnlyList<PokemonCard>> GetAllAsync(CancellationToken ct = default);
     Task<int> CountAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<Guid>> GetIdsBySetIdAsync(Guid setId, CancellationToken ct = default);
 
     /// <summary>
     /// Rarités et supertypes distincts présents dans un set.

@@ -21,9 +21,11 @@ public sealed class SyncPokemonTcgCommandHandler : IRequestHandler<SyncPokemonTc
         SyncPokemonTcgCommand request, CancellationToken cancellationToken)
     {
         _logger.LogInformation(
-            "SyncPokemonTcgCommand reçu. ForceRefresh={ForceRefresh}", request.ForceRefresh);
+            "SyncPokemonTcgCommand reçu. ForceRefresh={ForceRefresh} SetTcgId={SetTcgId}",
+            request.ForceRefresh, request.SetTcgId ?? "all");
 
-        var result = await _aggregator.SyncCatalogAsync(request.ForceRefresh, cancellationToken);
+        var result = await _aggregator.SyncCatalogAsync(
+            request.ForceRefresh, request.SetTcgId, cancellationToken);
 
         return new SyncResultDto(
             SeriesImported: result.SeriesUpserted,

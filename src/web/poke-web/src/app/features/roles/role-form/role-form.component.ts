@@ -1,5 +1,5 @@
 import {
-  Component, input, output, inject, OnInit, ChangeDetectionStrategy, signal,
+  Component, input, output, inject, OnInit, ChangeDetectionStrategy, signal, computed, effect,
 } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators, FormGroup } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -14,6 +14,16 @@ import { SpinnerComponent } from '@shared/ui/spinner/spinner.component';
   imports: [CommonModule, ReactiveFormsModule, SpinnerComponent],
   template: `
     <form [formGroup]="form" (ngSubmit)="submit()" class="form">
+
+      <!-- Notice rôle système -->
+      @if (isSystemRole()) {
+        <div class="system-notice">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          Rôle système — les permissions sont gérées par la plateforme et ne peuvent pas être modifiées.
+        </div>
+      }
 
       <div class="form-group">
         <label class="label" for="rf-name">Nom du rôle <span class="req">*</span></label>
@@ -42,11 +52,13 @@ import { SpinnerComponent } from '@shared/ui/spinner/spinner.component';
       <div class="perm-section">
         <div class="perm-header">
           <span class="perm-title">Permissions</span>
-          <div class="perm-controls">
-            <button type="button" class="text-btn" (click)="selectAll()">Tout cocher</button>
-            <span class="sep">·</span>
-            <button type="button" class="text-btn" (click)="clearAll()">Tout décocher</button>
-          </div>
+          @if (!isSystemRole()) {
+            <div class="perm-controls">
+              <button type="button" class="text-btn" (click)="selectAll()">Tout cocher</button>
+              <span class="sep">·</span>
+              <button type="button" class="text-btn" (click)="clearAll()">Tout décocher</button>
+            </div>
+          }
         </div>
 
         @for (group of rolesStore.permissionGroups(); track group.category) {
@@ -65,9 +77,10 @@ import { SpinnerComponent } from '@shared/ui/spinner/spinner.component';
             @if (isCatOpen(group.category)) {
               <div class="perm-rows">
                 @for (perm of group.permissions; track perm.code) {
-                  <label class="perm-row">
+                  <label class="perm-row" [class.perm-row--disabled]="isSystemRole()">
                     <input type="checkbox" class="chk"
                            [checked]="selected().has(perm.code)"
+                           [disabled]="isSystemRole()"
                            (change)="togglePerm(perm.code, $event)" />
                     <div class="perm-info">
                       <code class="perm-code">{{ perm.code }}</code>
@@ -82,11 +95,15 @@ import { SpinnerComponent } from '@shared/ui/spinner/spinner.component';
       </div>
 
       <div class="actions">
-        <button type="button" class="btn btn--ghost" (click)="cancelled.emit()">Annuler</button>
-        <button type="submit" class="btn btn--primary" [disabled]="saving()">
-          @if (saving()) { <app-spinner size="sm" /> }
-          {{ mode() === 'create' ? 'Créer le rôle' : 'Enregistrer' }}
+        <button type="button" class="btn btn--ghost" (click)="cancelled.emit()">
+          {{ isSystemRole() ? 'Fermer' : 'Annuler' }}
         </button>
+        @if (!isSystemRole()) {
+          <button type="submit" class="btn btn--primary" [disabled]="saving()">
+            @if (saving()) { <app-spinner size="sm" /> }
+            {{ mode() === 'create' ? 'Créer le rôle' : 'Enregistrer' }}
+          </button>
+        }
       </div>
     </form>
   `,
@@ -154,6 +171,17 @@ import { SpinnerComponent } from '@shared/ui/spinner/spinner.component';
     .perm-info { display: flex; flex-direction: column; gap: 2px; }
     .perm-code { font-family: var(--font-family-mono); font-size: var(--font-size-xs); color: var(--color-text-primary); }
     .perm-desc { font-size: var(--font-size-xs); color: var(--color-text-muted); }
+    .perm-row--disabled { opacity: 0.6; cursor: default; pointer-events: none; }
+
+    .system-notice {
+      display: flex; align-items: center; gap: var(--space-2);
+      padding: var(--space-3) var(--space-4);
+      background: var(--color-surface-raised);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-sm); color: var(--color-text-secondary);
+      svg { flex-shrink: 0; color: var(--color-text-muted); }
+    }
 
     .actions {
       display: flex; justify-content: flex-end; gap: var(--space-3);
@@ -179,16 +207,27 @@ export class RoleFormComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   readonly rolesStore = inject(RolesStore);
 
-  readonly mode     = input<'create' | 'edit'>('create');
+  readonly mode        = input<'create' | 'edit'>('create');
   readonly initialData = input<RoleDto | null>(null);
-  readonly saving   = input<boolean>(false);
+  readonly saving      = input<boolean>(false);
 
   readonly submitted = output<CreateRoleRequest | UpdateRoleRequest>();
   readonly cancelled = output<void>();
 
+  /** true si le rôle en cours d'édition est un rôle système (non modifiable) */
+  readonly isSystemRole = computed(() => this.mode() === 'edit' && !!this.initialData()?.isSystem);
+
   form!: FormGroup;
-  readonly selected    = signal<Set<string>>(new Set());
-  readonly openCats    = signal<Set<string>>(new Set());
+  readonly selected = signal<Set<string>>(new Set());
+  readonly openCats = signal<Set<string>>(new Set());
+
+  /** Ouvre toutes les catégories dès que les permissions sont chargées (même après le rendu initial) */
+  private readonly _openAllEffect = effect(() => {
+    const groups = this.rolesStore.permissionGroups();
+    if (groups.length > 0 && this.openCats().size === 0) {
+      this.openCats.set(new Set(groups.map(g => g.category)));
+    }
+  });
 
   ngOnInit(): void {
     const d = this.initialData();
@@ -200,13 +239,21 @@ export class RoleFormComponent implements OnInit {
           : []],
       description: [d?.description ?? ''],
     });
+
+    if (this.isSystemRole()) {
+      this.form.disable();
+    }
+
     this.selected.set(new Set(d?.permissions ?? []));
 
     // Load permissions catalogue if not yet loaded
     if (this.rolesStore.permissions().length === 0) this.rolesStore.load();
 
-    // Open all categories by default
-    this.openCats.set(new Set(this.rolesStore.permissionGroups().map(g => g.category)));
+    // Open all categories now if already available (effect handles the late-load case)
+    const groups = this.rolesStore.permissionGroups();
+    if (groups.length > 0) {
+      this.openCats.set(new Set(groups.map(g => g.category)));
+    }
   }
 
   touched(ctrl: string): boolean {

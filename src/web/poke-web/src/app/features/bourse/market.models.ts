@@ -65,7 +65,7 @@ export interface PagedResult<T> {
   totalPages: number;
 }
 
-// ── Grading (données mock — à connecter à une API de gradation) ───────────────
+// ── Grading ───────────────────────────────────────────────────────────────────
 
 export type GradingCompanyId = 'PSA' | 'BGS' | 'CGC' | 'SGC' | 'AGS' | 'CSG';
 
@@ -89,6 +89,41 @@ export interface CardGradingData {
   company: GradingCompanyId;
   entries: GradeEntry[];
   lastUpdated: Date;
+}
+
+// ── DTO depuis l'API grading ──────────────────────────────────────────────────
+export interface CardGradingApiDto {
+  company: string;
+  lastUpdated: string;
+  entries: GradeEntryApiDto[];
+}
+
+export interface GradeEntryApiDto {
+  grade: number;
+  label: string;
+  marketPrice: number | null;
+  lowPrice: number | null;
+  population: number | null;
+}
+
+// ── Sync planifié ────────────────────────────────────────────────────────────
+
+export interface SyncScheduleDto {
+  scheduledTime: string | null;      // "HH:mm"
+  isRecurring: boolean;
+  nextRunAt: string | null;          // ISO UTC
+  status: 'none' | 'pending' | 'running' | 'completed' | 'cancelled';
+  lastCompletedAt: string | null;
+  lastPricesUpserted: number | null;
+}
+
+export interface SyncProgressEvent {
+  setName: string;
+  cardName: string;
+  cardNumber: string;
+  grades: string[];     // ["PSA7","PSA8","PSA9","PSA10"]
+  success: boolean;
+  timestamp: string;
 }
 
 // ── Filtres marché ────────────────────────────────────────────────────────────
