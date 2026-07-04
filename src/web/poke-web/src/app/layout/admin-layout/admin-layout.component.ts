@@ -19,7 +19,7 @@ import { PermissionStore } from '@core/auth/permission.store';
       </div>
     }
 
-    <div class="admin-shell">
+    <div class="admin-shell" [style.--layout-sidebar-w]="sidebarCollapsed() ? '60px' : '240px'">
       <app-sidebar [collapsed]="sidebarCollapsed()" />
 
       <div class="admin-shell__main">

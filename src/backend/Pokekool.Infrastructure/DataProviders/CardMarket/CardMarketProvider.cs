@@ -87,10 +87,6 @@ internal sealed class CardMarketProvider : ICardPriceProvider
                     results.Add(new CardPriceData(
                         Source:         Name,
                         RawMarketPrice: single.PriceGuide.Trend ?? single.PriceGuide.Avg,
-                        Psa7:           null,
-                        Psa8:           null,
-                        Psa9:           null,
-                        Psa10:          null,
                         Currency:       "EUR",
                         FetchedAt:      DateTime.UtcNow));
                 }

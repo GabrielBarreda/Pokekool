@@ -149,4 +149,12 @@ export const PROVIDERS: ProviderConfig[] = [
     noKeys: true,
     pricing: { label: 'Gratuit', variant: 'free' },
   },
+  {
+    provider: 'gemtracker',
+    label: 'GemTracker',
+    contribution: 'Population PSA + BGS · sets Base → Sun & Moon · scraping public',
+    fixedBadge: { text: 'Actif', variant: 'success' },
+    noKeys: true,
+    pricing: { label: 'Gratuit', variant: 'free' },
+  },
 ];

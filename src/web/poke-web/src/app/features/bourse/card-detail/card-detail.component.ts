@@ -1,16 +1,20 @@
 import {
-  Component, Input, Output, EventEmitter, signal, computed, input,
+  Component, Input, Output, EventEmitter, signal, computed, input, inject,
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MarketCardDto, CardGradingData, GradeEntry, GradingCompany, GradingCompanyId } from '../market.models';
 import { GRADING_COMPANIES } from '../grading-mock.data';
+import { ThemeStore } from '@core/theme/theme.store';
 
 @Component({
   selector: 'app-card-detail',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule],
+  host: {
+    '[class.theme-pokemon]': 'themeStore.isPokemon()',
+  },
   template: `
     <!-- Backdrop -->
     <div class="backdrop" (click)="closed.emit()"></div>
@@ -21,7 +25,10 @@ import { GRADING_COMPANIES } from '../grading-mock.data';
       <!-- Header -->
       <div class="drawer-header">
         <div class="drawer-card-info">
-          @if (card.imageSmall) {
+          <!-- En thème Pokémon, l'image est déjà affichée en grand (hero card
+               tournoyant) par le parent (market-list) — pas besoin de la
+               dupliquer ici. -->
+          @if (card.imageSmall && !themeStore.isPokemon()) {
             <img [src]="card.imageLarge ?? card.imageSmall" [alt]="card.name" class="header-img" />
           }
           <div class="header-text">
@@ -57,23 +64,51 @@ import { GRADING_COMPANIES } from '../grading-mock.data';
           <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
         </svg>
         Données de gradation
+        <span class="title-spacer"></span>
+
+        <!-- Toggle vue tableau / graphique -->
+        @if (activeData()) {
+          <div class="view-toggle" role="group" aria-label="Mode d'affichage">
+            <button class="view-toggle__btn"
+                    [class.view-toggle__btn--active]="gradeView() === 'table'"
+                    aria-label="Vue tableau"
+                    title="Vue tableau"
+                    (click)="gradeView.set('table')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/>
+                <line x1="9" y1="3" x2="9" y2="21"/>
+              </svg>
+            </button>
+            <button class="view-toggle__btn"
+                    [class.view-toggle__btn--active]="gradeView() === 'chart'"
+                    aria-label="Vue graphique"
+                    title="Vue graphique"
+                    (click)="gradeView.set('chart')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/>
+              </svg>
+            </button>
+          </div>
+        }
+
         @if (activeData()?.lastUpdated; as dt) {
           <span class="data-date">MAJ {{ dt | date:'dd/MM HH:mm' }}</span>
         }
       </div>
 
-      <!-- Company tabs -->
+      <!-- Company tabs — seulement les sociétés avec données -->
       <div class="company-tabs">
         @for (company of companies; track company.id) {
-          <button class="company-tab"
-                  [class.company-tab--active]="activeCompany() === company.id"
-                  [style.--tab-color]="company.color"
-                  (click)="activeCompany.set(company.id)">
-            <span class="tab-dot"
-                  [style.background]="hasDataFor(company.id) ? company.color : 'var(--color-neutral-300)'"
-                  [title]="hasDataFor(company.id) ? '' : 'Pas de données'"></span>
-            {{ company.name }}
-          </button>
+          @if (hasDataFor(company.id)) {
+            <button class="company-tab"
+                    [class.company-tab--active]="activeCompany() === company.id"
+                    [style.--tab-color]="company.color"
+                    (click)="activeCompany.set(company.id)">
+              <span class="tab-dot" [style.background]="company.color"></span>
+              {{ company.name }}
+            </button>
+          }
         }
       </div>
 
@@ -86,6 +121,7 @@ import { GRADING_COMPANIES } from '../grading-mock.data';
           Chargement…
         </div>
       } @else if (activeData(); as data) {
+      <div class="company-panel" [style.--company-color]="activeCompanyObj()?.color">
         <!-- Summary chips -->
         <div class="summary-row">
           <div class="summary-chip">
@@ -111,6 +147,7 @@ import { GRADING_COMPANIES } from '../grading-mock.data';
         </div>
 
         <!-- SVG Bar chart: prix par grade -->
+        @if (gradeView() === 'chart') {
         <div class="chart-wrap">
           <div class="chart-label">Prix marché par grade — {{ activeCompanyObj()?.name }}</div>
           <svg class="bar-chart" [attr.viewBox]="'0 0 ' + CHART_W + ' ' + CHART_H" preserveAspectRatio="xMidYMid meet">
@@ -198,8 +235,10 @@ import { GRADING_COMPANIES } from '../grading-mock.data';
             </span>
           </div>
         </div>
+        }
 
         <!-- Table détail -->
+        @if (gradeView() === 'table') {
         <div class="table-wrap">
           <table class="grade-table">
             <thead>
@@ -260,6 +299,8 @@ import { GRADING_COMPANIES } from '../grading-mock.data';
             </tbody>
           </table>
         </div>
+        }
+      </div>
       } @else {
         <!-- Aucune donnée pour cette société -->
         <div class="grading-state grading-state--empty">
@@ -271,21 +312,92 @@ import { GRADING_COMPANIES } from '../grading-mock.data';
           <span class="grading-state__sub">{{ activeCompanyObj()?.name }} — aucun prix de gradation disponible</span>
         </div>
       }
+
+      <!-- Cote & ventes — réservé pour le futur suivi des transactions
+           individuelles (entité CardSale côté back, pas encore implémentée). -->
+      <div class="section-title-bar">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/>
+        </svg>
+        Cote & ventes
+      </div>
+      <div class="ladder-placeholder">
+        <span class="ladder-placeholder__icon">📈</span>
+        <p class="ladder-placeholder__text">Bientôt disponible</p>
+        <p class="ladder-placeholder__sub">
+          Fourchette de prix (haut / bas / moyenne) et historique des dernières
+          ventes — arrivera avec le suivi des transactions individuelles.
+        </p>
+      </div>
     </aside>
   `,
   styles: [`
-    /* ── Backdrop ── */
-    .backdrop {
-      position: fixed; inset: 0; z-index: calc(var(--z-modal) - 1);
-      background: var(--color-surface-overlay);
-      animation: fadeIn var(--duration-normal) var(--easing-decelerate);
+    /* ── Largeur du panneau ──
+       Définie sur :host (ancêtre commun du backdrop et du drawer, qui sont
+       deux éléments frères) pour que les deux puissent la lire. */
+    :host {
+      --drawer-w: clamp(420px, calc((100vw - var(--layout-sidebar-w, 240px)) * 0.8), calc(100vw - var(--layout-sidebar-w, 240px) - 360px));
     }
-    @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+    /* Sous ~960px de large utile : plus assez de place pour garder 2 cartes
+       visibles à gauche → le panneau repasse en plein écran façon modal. */
+    @media (max-width: 960px) {
+      :host { --drawer-w: 100vw; }
+    }
+
+    /* ── Thème Pokémon ──
+       Le détail n'est plus un drawer plein écran : il est posé par le
+       parent (market-list) dans l'espace libéré à côté du classeur, en
+       panneau statique. Le morph carte → détail est assuré par la View
+       Transition API (view-transition-name partagé, cf. selectCard/
+       closeDetail du parent) ; ici on ne fait qu'ôter le positionnement
+       fixed et l'animation slideIn, remplacée par un léger scale-in en
+       secours pour les navigateurs sans support de la View Transition API. */
+    :host(.theme-pokemon) {
+      display: block;
+      width: 100%;
+      --drawer-w: 100%;
+    }
+    :host(.theme-pokemon) .backdrop { display: none; }
+    :host(.theme-pokemon) .drawer {
+      position: static;
+      width: 100%;
+      height: 100%;
+      border-left: none;
+      border-radius: var(--radius-2xl);
+      animation: pokemonDetailIn var(--duration-slow) var(--easing-decelerate);
+    }
+    @keyframes pokemonDetailIn {
+      from { opacity: 0; transform: scale(0.94); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      :host(.theme-pokemon) .drawer { animation: none; }
+    }
+
+    /* ── Backdrop ──
+       Ne couvre que la zone du drawer lui-même : la colonne de gauche
+       (≈ largeur de 2 cartes) reste visible, cliquable et scrollable
+       pendant que le panneau est ouvert. Sur petit écran le drawer repasse
+       en plein écran et le backdrop redevient un vrai overlay de fermeture. */
+    .backdrop {
+      position: fixed; top: 0; bottom: 0; right: 0;
+      left: calc(100% - var(--drawer-w));
+      z-index: calc(var(--z-modal) - 1);
+      background: transparent;
+      cursor: default;
+    }
+    @media (max-width: 960px) {
+      .backdrop {
+        left: 0; background: var(--color-surface-overlay); cursor: pointer;
+        animation: fadeIn var(--duration-normal) var(--easing-decelerate);
+      }
+      @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+    }
 
     /* ── Drawer ── */
     .drawer {
       position: fixed; right: 0; top: 0; bottom: 0;
-      width: min(640px, 100vw); z-index: var(--z-modal);
+      width: var(--drawer-w); z-index: var(--z-modal);
       background: var(--color-surface-base);
       border-left: 1px solid var(--color-border-default);
       box-shadow: var(--shadow-xl);
@@ -334,8 +446,24 @@ import { GRADING_COMPANIES } from '../grading-mock.data';
       color: var(--color-text-primary);
     }
     .data-date {
-      margin-left: auto; font-size: var(--font-size-xs); font-weight: var(--font-weight-regular);
-      color: var(--color-text-muted);
+      font-size: var(--font-size-xs); font-weight: var(--font-weight-regular);
+      color: var(--color-text-muted); white-space: nowrap;
+    }
+    .title-spacer { flex: 1; }
+
+    /* ── Toggle vue tableau / graphique ── */
+    .view-toggle {
+      display: flex; gap: 2px; padding: 2px;
+      background: var(--color-surface-sunken);
+      border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md);
+    }
+    .view-toggle__btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 26px; height: 24px; border: none; border-radius: calc(var(--radius-md) - 2px);
+      background: transparent; color: var(--color-text-muted); cursor: pointer;
+      transition: all var(--duration-fast);
+      &:hover { color: var(--color-text-primary); }
+      &--active { background: var(--color-surface-base); color: var(--color-brand-primary); box-shadow: var(--shadow-sm); }
     }
 
     /* ── Company tabs ── */
@@ -357,6 +485,18 @@ import { GRADING_COMPANIES } from '../grading-mock.data';
     }
     .tab-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
     .company-tab--active .tab-dot { background: rgba(255,255,255,0.7) !important; }
+
+    /* ── Company panel ──
+       Accent de couleur propre à la société de gradation active, pour bien
+       séparer visuellement les données PSA / CGC / SGC / … entre elles. */
+    .company-panel {
+      border-left: 3px solid var(--company-color, var(--color-brand-primary));
+      margin: var(--space-2) 0 0 var(--space-6);
+      padding-left: var(--space-4);
+    }
+    .company-panel .summary-row,
+    .company-panel .chart-wrap,
+    .company-panel .table-wrap { padding-left: 0; }
 
     /* ── Summary chips ── */
     .summary-row {
@@ -431,6 +571,16 @@ import { GRADING_COMPANIES } from '../grading-mock.data';
       &__sub { font-size: var(--font-size-xs); color: var(--color-text-muted); }
       &--empty svg { color: var(--color-semantic-warning); }
     }
+
+    /* ── Cote & ventes (placeholder) ── */
+    .ladder-placeholder {
+      display: flex; flex-direction: column; align-items: center; text-align: center;
+      gap: var(--space-2); padding: var(--space-8) var(--space-6) var(--space-10);
+      opacity: 0.65;
+    }
+    .ladder-placeholder__icon { font-size: 30px; }
+    .ladder-placeholder__text { font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-secondary); margin: 0; }
+    .ladder-placeholder__sub { font-size: var(--font-size-xs); color: var(--color-text-muted); margin: 0; max-width: 340px; }
   `],
 })
 export class CardDetailComponent {
@@ -440,8 +590,11 @@ export class CardDetailComponent {
   readonly gradingLoading = input<boolean>(false);
   @Output() closed = new EventEmitter<void>();
 
+  readonly themeStore = inject(ThemeStore);
+
   readonly companies: GradingCompany[] = GRADING_COMPANIES;
   readonly activeCompany = signal<GradingCompanyId>('PSA');
+  readonly gradeView = signal<'table' | 'chart'>('table');
   readonly ALL_GRADES = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 
   // Chart dimensions

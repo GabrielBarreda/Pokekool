@@ -3,6 +3,7 @@ using Pokekool.Application.DataCollection;
 using Pokekool.Domain.Entities.Pokemon;
 using Pokekool.Domain.Repositories;
 using Pokekool.Infrastructure.DataProviders.Scraping;
+using ProviderKeys = Pokekool.Domain.Entities.Pokemon.ProviderKeys;
 
 namespace Pokekool.Infrastructure.DataProviders.CardMarketScraping;
 
@@ -42,22 +43,25 @@ public sealed class CardMarketScrapingProvider : ICardPriceProvider
             ["Accept-Language"] = "fr-FR,fr;q=0.9,en;q=0.8",
         });
 
-    private readonly ScrapingPipeline       _pipeline;
-    private readonly IPokemonCardRepository _cardRepo;
-    private readonly IPokemonSetRepository  _setRepo;
+    private readonly ScrapingPipeline           _pipeline;
+    private readonly IPokemonCardRepository     _cardRepo;
+    private readonly IPokemonSetRepository      _setRepo;
+    private readonly IProviderMappingRepository _mappingRepo;
     private readonly ILogger<CardMarketScrapingProvider> _logger;
     private readonly Random _rng = new();
 
     public CardMarketScrapingProvider(
-        ScrapingPipeline       pipeline,
-        IPokemonCardRepository cardRepo,
-        IPokemonSetRepository  setRepo,
+        ScrapingPipeline                    pipeline,
+        IPokemonCardRepository              cardRepo,
+        IPokemonSetRepository               setRepo,
+        IProviderMappingRepository          mappingRepo,
         ILogger<CardMarketScrapingProvider> logger)
     {
-        _pipeline = pipeline;
-        _cardRepo = cardRepo;
-        _setRepo  = setRepo;
-        _logger   = logger;
+        _pipeline    = pipeline;
+        _cardRepo    = cardRepo;
+        _setRepo     = setRepo;
+        _mappingRepo = mappingRepo;
+        _logger      = logger;
     }
 
     // ── ICardPriceProvider ────────────────────────────────────────────────────
@@ -195,8 +199,9 @@ public sealed class CardMarketScrapingProvider : ICardPriceProvider
             return null;
         }
 
-        // Override de slug manuel (cm_scraping_slug sur PokemonCard) ?
-        var cardSlugOverride = card.CmScrapingSlug;
+        // Override de slug manuel (scraping_slug dans provider_card_mappings) ?
+        var cardSlugOverride = await _mappingRepo.GetCardValueAsync(
+            card.Id, ProviderKeys.CardMarket, ProviderKeys.ScrapingSlug, ct);
 
         var url = CardMarketScrapingUrlBuilder.BuildUrl(set.Name, card.Name, cardSlugOverride);
 
@@ -214,10 +219,6 @@ public sealed class CardMarketScrapingProvider : ICardPriceProvider
         new(
             Source:         "cardmarket-scraping",
             RawMarketPrice: r.TrendPrice ?? r.LowPrice,
-            Psa7:           null,
-            Psa8:           null,
-            Psa9:           null,
-            Psa10:          null,
             Currency:       "EUR",
             FetchedAt:      DateTime.UtcNow);
 }

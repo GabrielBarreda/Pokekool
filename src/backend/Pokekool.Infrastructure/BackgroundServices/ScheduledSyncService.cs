@@ -1,7 +1,9 @@
+using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Pokekool.Application.DataCollection;
+using Pokekool.Application.Pokemon.Commands.SyncCardPopulation;
 using Pokekool.Domain.Repositories;
 using Pokekool.Infrastructure.Services;
 
@@ -65,8 +67,18 @@ public sealed class ScheduledSyncService : BackgroundService
             _state.LastPricesUpserted = result.PricesUpserted;
 
             _logger.LogInformation(
-                "ScheduledSyncService — terminé : {Upserted} prix, {Failed} échec(s).",
+                "ScheduledSyncService — prix terminés : {Upserted} prix, {Failed} échec(s).",
                 result.PricesUpserted, result.CardsFailed);
+
+            // ── Sync population (après les prix) ──────────────────────────────
+            var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+            var popResult = await mediator.Send(new SyncCardPopulationCommand(null), ct);
+
+            _logger.LogInformation(
+                "ScheduledSyncService — population terminée : {Upserted} upserts, {Failed} échec(s).",
+                popResult.PopulationsUpserted, popResult.CardsFailed);
+
+            _logger.LogInformation("ScheduledSyncService — sync complet.");
 
             if (_state.IsRecurring)
             {

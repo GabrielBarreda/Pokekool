@@ -24,4 +24,7 @@ public sealed record SyncCardPricesCommand(
 public sealed record SyncPricesResultDto(
     int PricesUpserted,
     int CardsFailed,
-    IReadOnlyList<string>? Errors);
+    IReadOnlyList<string>? Errors,
+    IReadOnlyDictionary<string, int>? GradedByCompany      = null,
+    int                               CardsWithoutAnyPrice  = 0,
+    int                               CardsWithKeyGradesMissing = 0);

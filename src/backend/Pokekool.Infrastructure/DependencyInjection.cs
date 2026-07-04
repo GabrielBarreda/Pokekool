@@ -6,6 +6,8 @@ using Npgsql;
 using Pokekool.Application.Abstractions;
 using Pokekool.Infrastructure.DataProviders.CardMarket;
 using Pokekool.Infrastructure.DataProviders.CardMarketScraping;
+using Pokekool.Infrastructure.DataProviders.GemTracker;
+using Pokekool.Infrastructure.DataProviders.CardLadder;
 using Pokekool.Infrastructure.DataProviders.CardTrader;
 using Pokekool.Infrastructure.DataProviders.Mavin;
 using Pokekool.Infrastructure.DataProviders.PointSales;
@@ -73,7 +75,9 @@ public static class DependencyInjection
         services.AddScoped<IPokemonSetRepository, PokemonSetRepository>();
         services.AddScoped<IPokemonCardRepository, PokemonCardRepository>();
         services.AddScoped<ICardMarketPriceRepository, CardMarketPriceRepository>();
+        services.AddScoped<ICardGradedPriceRepository, CardGradedPriceRepository>();
         services.AddScoped<ICardPopulationRepository, CardPopulationRepository>();
+        services.AddScoped<IProviderMappingRepository, ProviderMappingRepository>();
         services.AddScoped<IProviderSettingRepository, ProviderSettingRepository>();
         services.AddScoped<IUserCollectionRepository, UserCollectionRepository>();
         services.AddScoped<IDashboardRepository, DashboardRepository>();
@@ -96,12 +100,33 @@ public static class DependencyInjection
         services.AddScoped<ICardMetadataProvider, PokemonTcgProvider>();
         services.AddScoped<ICardPriceProvider, PriceChartingProvider>();
         services.AddScoped<ICardPriceProvider, CardMarketProvider>();
-        services.AddScoped<ICardPriceProvider, CardMarketScrapingProvider>();
+        // CardMarketScraping désactivé : bot-bloqué (HTML 371 chars), appliquer SemaphoreSlim + stealth avant de réactiver.
+        // services.AddScoped<ICardPriceProvider, CardMarketScrapingProvider>();
         services.AddScoped<ICardPriceProvider, TcgPlayerProvider>();
         services.AddScoped<ICardPriceProvider, CardTraderProvider>();
-        services.AddScoped<ICardPriceProvider, MavinProvider>();
+        // Mavin désactivé : domaine mavin.io en vente (afternic), provider inutilisable.
+        // services.AddScoped<ICardPriceProvider, MavinProvider>();
         services.AddScoped<ICardPriceProvider, PointSalesProvider>();
+        services.AddScoped<ICardPriceProvider, CardLadderProvider>();
+
+        // ---- CardLadder Firestore client (HttpClient, public API — no auth required) ----
+        services.AddHttpClient<CardLadderFirestoreClient>(client =>
+        {
+            client.DefaultRequestHeaders.Accept.Add(
+                new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
         services.AddScoped<IPopulationProvider, PsaProvider>();
+
+        // GemTracker : HttpClient dédié pour la discovery SSR (plain HTTP, pas de Playwright)
+        services.AddHttpClient("gemtracker", client =>
+        {
+            client.DefaultRequestHeaders.TryAddWithoutValidation(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
+        services.AddScoped<IPopulationProvider, GemTrackerProvider>();
 
         // ---- CardMarket HttpClient (OAuth 1.0a via DelegatingHandler) ----
         services.Configure<CardMarketOptions>(config.GetSection(CardMarketOptions.SectionName));
@@ -132,6 +157,10 @@ public static class DependencyInjection
         services.AddSingleton<ISyncProgressReporter>(sp => sp.GetRequiredService<SyncProgressService>());
         services.AddSingleton<SyncScheduleState>();
         services.AddHostedService<ScheduledSyncService>();
+
+        // ---- DbConcurrencyGuard — sémaphore scoped partagé entre providers ----
+        // Sérialise les accès EF Core quand les providers tournent en parallèle.
+        services.AddScoped<DbConcurrencyGuard>();
 
         // ---- Aggregator ----
         services.AddScoped<DataAggregator>();

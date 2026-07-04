@@ -1,4 +1,5 @@
 using MediatR;
+using Pokekool.Domain.Entities.Pokemon;
 using Pokekool.Domain.Repositories;
 using Pokekool.Shared.Dtos.Pokemon;
 
@@ -7,36 +8,124 @@ namespace Pokekool.Application.Pokemon.Queries.GetCardGrading;
 public sealed class GetCardGradingQueryHandler
     : IRequestHandler<GetCardGradingQuery, IReadOnlyList<CardGradingDto>>
 {
-    private readonly ICardMarketPriceRepository _priceRepo;
+    private readonly ICardGradedPriceRepository _gradedPriceRepo;
+    private readonly ICardPopulationRepository  _populationRepo;
 
-    public GetCardGradingQueryHandler(ICardMarketPriceRepository priceRepo)
-        => _priceRepo = priceRepo;
+    public GetCardGradingQueryHandler(
+        ICardGradedPriceRepository gradedPriceRepo,
+        ICardPopulationRepository  populationRepo)
+    {
+        _gradedPriceRepo = gradedPriceRepo;
+        _populationRepo  = populationRepo;
+    }
 
     public async Task<IReadOnlyList<CardGradingDto>> Handle(
         GetCardGradingQuery request, CancellationToken cancellationToken)
     {
-        var prices = await _priceRepo.GetByCardIdAsync(request.CardId, cancellationToken);
+        var gradedPrices = await _gradedPriceRepo.GetByCardIdAsync(request.CardId, cancellationToken);
+        var populations  = await _populationRepo.GetByCardIdAsync(request.CardId, cancellationToken);
+
+        // ── 1. Index population par company ──────────────────────────────────
+        // Plusieurs sources peuvent mapper sur la même company (ex: "psa" et "gemtracker-psa" → PSA)
+        // On garde la plus récente par company
+        var popByCompany = populations
+            .GroupBy(p => MapSourceToCompany(p.Source), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(p => p.FetchedAt).First(),
+                StringComparer.OrdinalIgnoreCase);
+
+        // ── 2. Construire les DTOs à partir des prix ──────────────────────────
+        var byCompany = gradedPrices
+            .GroupBy(g => g.GradingCompany, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g.Key);
+
         var result = new List<CardGradingDto>();
 
-        // ── PSA via PriceCharting ──────────────────────────────────────────
-        var pc = prices.FirstOrDefault(p => p.Source == "pricecharting");
-        if (pc is not null)
+        foreach (var group in byCompany)
         {
-            var entries = new List<GradeEntryDto>();
+            popByCompany.TryGetValue(group.Key, out var pop);
 
-            if (pc.Psa7  is not null) entries.Add(new GradeEntryDto(7,    "7",   pc.Psa7,  null, null));
-            if (pc.Psa8  is not null) entries.Add(new GradeEntryDto(8,    "8",   pc.Psa8,  null, null));
-            if (pc.Psa9  is not null) entries.Add(new GradeEntryDto(9,    "9",   pc.Psa9,  null, null));
-            if (pc.Psa95 is not null) entries.Add(new GradeEntryDto(9.5m, "9.5", pc.Psa95, null, null));
-            if (pc.Psa10 is not null) entries.Add(new GradeEntryDto(10,   "10",  pc.Psa10, null, null));
+            var entries = group
+                .GroupBy(g => g.GradeValue)
+                .OrderByDescending(g => g.Key)
+                .Select(gGrade =>
+                {
+                    var best = gGrade.OrderByDescending(g => g.FetchedAt).First();
+                    return new GradeEntryDto(
+                        Grade:       best.GradeValue,
+                        Label:       best.GradeValue.ToString("0.#"),
+                        MarketPrice: best.Price,
+                        LowPrice:    null,
+                        Population:  pop is not null ? GradePopulation(pop, (int)best.GradeValue) : null,
+                        Source:      best.Source,
+                        Currency:    best.Currency);
+                })
+                .ToList();
 
             if (entries.Count > 0)
-                result.Add(new CardGradingDto("PSA", pc.FetchedAt, entries));
+            {
+                var latestFetch = new[] { group.Max(g => g.FetchedAt), pop?.FetchedAt ?? DateTime.MinValue }.Max();
+                result.Add(new CardGradingDto(group.Key, latestFetch, entries));
+                popByCompany.Remove(group.Key); // déjà consommé
+            }
         }
 
-        // ── Autres sociétés à brancher ici quand les providers existent ───
-        // BGS, CGC, SGC, AGS, CSG...
+        // ── 3. Companies avec population seulement (pas de prix) ─────────────
+        // ex: gemtracker-bgs avant que les prix BGS soient disponibles
+        foreach (var (company, pop) in popByCompany.OrderBy(kvp => kvp.Key))
+        {
+            var entries = new List<GradeEntryDto>();
+            foreach (var (grade, popVal) in GradePopulations(pop))
+            {
+                if (popVal is null) continue;
+                entries.Add(new GradeEntryDto(
+                    Grade:       grade,
+                    Label:       grade.ToString(),
+                    MarketPrice: null,
+                    LowPrice:    null,
+                    Population:  popVal,
+                    Source:      pop.Source));
+            }
+
+            if (entries.Count > 0)
+                result.Add(new CardGradingDto(company, pop.FetchedAt, entries));
+        }
 
         return result;
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /// <summary>Mappe le source DB vers l'identifiant de société affiché.</summary>
+    private static string MapSourceToCompany(string source) =>
+        source.ToLowerInvariant() switch
+        {
+            "psa" or "gemtracker-psa" => "PSA",
+            "bgs" or "gemtracker-bgs" => "BGS",
+            "cgc"                     => "CGC",
+            "sgc"                     => "SGC",
+            "ags"                     => "AGS",
+            "csg"                     => "CSG",
+            _                         => source.ToUpperInvariant()
+        };
+
+    /// <summary>Population pour un grade précis depuis une entrée CardPopulation.</summary>
+    private static int? GradePopulation(CardPopulation p, int grade) => grade switch
+    {
+        10 => p.Pop10,
+        9  => p.Pop9,
+        8  => p.Pop8,
+        7  => p.Pop7,
+        _  => null
+    };
+
+    /// <summary>Toutes les paires (grade, population) non-nulles d'une entrée.</summary>
+    private static IEnumerable<(int Grade, int? Pop)> GradePopulations(CardPopulation p)
+    {
+        yield return (10, p.Pop10);
+        yield return (9,  p.Pop9);
+        yield return (8,  p.Pop8);
+        yield return (7,  p.Pop7);
     }
 }

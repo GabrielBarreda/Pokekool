@@ -13,10 +13,6 @@ public sealed class PokemonSet : Entity
     public int? PrintedTotal { get; private set; }
     public string? SymbolUrl { get; private set; }
     public string? LogoUrl { get; private set; }
-    public string? PriceChartingSlug { get; private set; }   // ex: "pokemon-base-set"
-    public int? CmExpansionId { get; private set; }          // ID expansion CardMarket
-    public int? TcgPlayerGroupId { get; private set; }       // Group ID TCGPlayer (null = non mappé)
-
     // Navigation
     public PokemonSeries? SeriesEntity { get; private set; }
 
@@ -77,21 +73,4 @@ public sealed class PokemonSet : Entity
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 
-    public void SetPriceChartingSlug(string? slug)
-    {
-        PriceChartingSlug = slug?.Trim().ToLowerInvariant();
-        UpdatedAt = DateTimeOffset.UtcNow;
-    }
-
-    public void SetCmExpansionId(int? expansionId)
-    {
-        CmExpansionId = expansionId;
-        UpdatedAt = DateTimeOffset.UtcNow;
-    }
-
-    public void SetTcgPlayerGroupId(int? groupId)
-    {
-        TcgPlayerGroupId = groupId;
-        UpdatedAt = DateTimeOffset.UtcNow;
-    }
 }

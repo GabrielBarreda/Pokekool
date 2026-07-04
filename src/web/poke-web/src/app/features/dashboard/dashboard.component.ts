@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectionStrategy, computed } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { PageHeaderComponent } from '@shared/ui/page-header/page-header.component';
 import { CardComponent } from '@shared/ui/card/card.component';
@@ -9,7 +9,10 @@ import { ForSaleWidgetComponent } from './widgets/for-sale-widget.component';
 import { RecentSalesWidgetComponent } from './widgets/recent-sales-widget.component';
 import { MessagesWidgetComponent } from './widgets/messages-widget.component';
 import { AiStatsWidgetComponent } from './widgets/ai-stats-widget.component';
+import { NewItemsWidgetComponent } from './widgets/new-items-widget.component';
 import { AiStatsDto } from './dashboard.models';
+
+const AUTO_REFRESH_MS = 60_000;
 
 @Component({
   selector: 'app-dashboard',
@@ -25,10 +28,17 @@ import { AiStatsDto } from './dashboard.models';
     RecentSalesWidgetComponent,
     MessagesWidgetComponent,
     AiStatsWidgetComponent,
+    NewItemsWidgetComponent,
   ],
   template: `
     <app-page-header title="Tableau de bord">
       <div class="header-right">
+        @if (isSyncRunning()) {
+          <div class="sync-indicator">
+            <span class="sync-indicator__dot"></span>
+            Sync en cours
+          </div>
+        }
         @if (store.lastRefreshedAt()) {
           <span class="refresh-ts">
             Mis à jour {{ store.lastRefreshedAt() | date:'HH:mm:ss' }}
@@ -68,6 +78,18 @@ import { AiStatsDto } from './dashboard.models';
             </div>
           </app-card>
 
+          <!-- Nouvelles cartes TCG -->
+          <app-new-items-widget
+            title="Nouvelles cartes"
+            icon="🆕"
+            [count]="newCardsCount()"
+            [items]="[]"
+            emptyMessage="Pas de nouvelle carte récupérée durant la dernière synchronisation avec le catalogue Pokémon."
+            linkLabel="Voir dans la bourse"
+            linkRoute="/bourse"
+            [loading]="isSyncRunning() && newCardsCount() === null"
+          />
+
           <!-- Messages -->
           <app-messages-widget
             [pendingCount]="store.summary()?.pendingMessagesCount ?? 0"
@@ -85,6 +107,7 @@ import { AiStatsDto } from './dashboard.models';
 
           <app-recently-scraped-widget
             [cards]="store.summary()?.recentlyScrapedCards ?? []"
+            [isSyncRunning]="isSyncRunning()"
           />
 
           <app-for-sale-widget
@@ -107,6 +130,20 @@ import { AiStatsDto } from './dashboard.models';
     .refresh-ts {
       font-size: var(--font-size-xs); color: var(--color-text-muted);
     }
+    /* ── Sync indicator ───────────────────────────────── */
+    .sync-indicator {
+      display: flex; align-items: center; gap: var(--space-2);
+      font-size: var(--font-size-xs);
+      color: var(--color-brand-primary);
+      font-weight: var(--font-weight-medium);
+    }
+    .sync-indicator__dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--color-brand-primary);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.8); } }
+
     .btn-refresh {
       display: inline-flex; align-items: center; gap: var(--space-1);
       padding: var(--space-2) var(--space-3);
@@ -185,7 +222,7 @@ import { AiStatsDto } from './dashboard.models';
     }
   `],
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   readonly store = inject(DashboardStore);
 
   readonly defaultAiStats: AiStatsDto = {
@@ -194,7 +231,35 @@ export class DashboardComponent implements OnInit {
     isEnabled:               false,
   };
 
+  /** true si le backend indique un sync en cours */
+  readonly isSyncRunning = computed(
+    () => this.store.syncStatus()?.status === 'running'
+  );
+
+  /**
+   * Nombre de nouvelles cartes depuis la dernière sync catalogue.
+   * null = données pas encore disponibles (endpoint backend à venir).
+   */
+  readonly newCardsCount = computed<number | null>(() => null);
+
+  private autoRefreshTimer: ReturnType<typeof setInterval> | null = null;
+  private syncPollTimer:    ReturnType<typeof setInterval> | null = null;
+
   ngOnInit(): void {
     this.store.loadSummary();
+    this.store.loadSyncStatus();
+
+    // Poll le statut de sync toutes les 30s
+    this.syncPollTimer = setInterval(() => this.store.loadSyncStatus(), 30_000);
+
+    // Auto-refresh du summary toutes les 60s si sync en cours
+    this.autoRefreshTimer = setInterval(() => {
+      if (this.isSyncRunning()) this.store.loadSummary();
+    }, AUTO_REFRESH_MS);
+  }
+
+  ngOnDestroy(): void {
+    if (this.autoRefreshTimer) clearInterval(this.autoRefreshTimer);
+    if (this.syncPollTimer)    clearInterval(this.syncPollTimer);
   }
 }

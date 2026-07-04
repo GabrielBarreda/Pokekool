@@ -17,7 +17,10 @@ public sealed class PokekoolDbContext : DbContext
     public DbSet<PokemonSet> PokemonSets => Set<PokemonSet>();
     public DbSet<PokemonCard> PokemonCards => Set<PokemonCard>();
     public DbSet<CardMarketPrice> CardMarketPrices => Set<CardMarketPrice>();
+    public DbSet<CardGradedPrice> CardGradedPrices => Set<CardGradedPrice>();
     public DbSet<CardPopulation> CardPopulations => Set<CardPopulation>();
+    public DbSet<ProviderSetMapping>  ProviderSetMappings  => Set<ProviderSetMapping>();
+    public DbSet<ProviderCardMapping> ProviderCardMappings => Set<ProviderCardMapping>();
     public DbSet<ProviderSetting> ProviderSettings => Set<ProviderSetting>();
     public DbSet<UserCollection> UserCollections => Set<UserCollection>();
 

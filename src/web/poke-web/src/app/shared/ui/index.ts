@@ -8,3 +8,4 @@ export { PageHeaderComponent } from './page-header/page-header.component';
 export { ToastContainerComponent } from './toast/toast-container.component';
 export { ModalComponent } from './modal/modal.component';
 export { ConfirmDialogComponent } from './confirm-dialog/confirm-dialog.component';
+export { ThemeToggleComponent } from './theme-toggle/theme-toggle.component';

@@ -8,24 +8,30 @@ namespace Pokekool.Application.Pokemon.Commands.SyncCardPrices;
 public sealed class SyncCardPricesCommandHandler
     : IRequestHandler<SyncCardPricesCommand, SyncPricesResultDto>
 {
-    private readonly DataAggregator _aggregator;
-    private readonly IPokemonCardRepository _cardRepo;
-    private readonly ICardMarketPriceRepository _priceRepo;
+    private readonly DataAggregator              _aggregator;
+    private readonly IPokemonCardRepository      _cardRepo;
+    private readonly ICardMarketPriceRepository  _priceRepo;
+    private readonly ICardGradedPriceRepository  _gradedRepo;
     private readonly ILogger<SyncCardPricesCommandHandler> _logger;
 
     // Source de référence pour le filtre de fraîcheur (provider principal)
     private const string StalenessSource = "pricecharting";
 
+    // Grades PSA considérés comme "importants" pour le calcul des gaps
+    private static readonly HashSet<decimal> KeyGrades = [7m, 8m, 9m, 10m];
+
     public SyncCardPricesCommandHandler(
-        DataAggregator aggregator,
-        IPokemonCardRepository cardRepo,
-        ICardMarketPriceRepository priceRepo,
+        DataAggregator              aggregator,
+        IPokemonCardRepository      cardRepo,
+        ICardMarketPriceRepository  priceRepo,
+        ICardGradedPriceRepository  gradedRepo,
         ILogger<SyncCardPricesCommandHandler> logger)
     {
-        _aggregator = aggregator;
-        _cardRepo   = cardRepo;
-        _priceRepo  = priceRepo;
-        _logger     = logger;
+        _aggregator  = aggregator;
+        _cardRepo    = cardRepo;
+        _priceRepo   = priceRepo;
+        _gradedRepo  = gradedRepo;
+        _logger      = logger;
     }
 
     public async Task<SyncPricesResultDto> Handle(
@@ -92,9 +98,34 @@ public sealed class SyncCardPricesCommandHandler
 
         var result = await _aggregator.SyncPricesAsync(cardIds, cancellationToken);
 
+        // ── Calcul des gaps (uniquement si on a un set cible) ────────────────
+        int cardsWithoutAnyPrice      = 0;
+        int cardsWithKeyGradesMissing = 0;
+
+        if (request.SetId.HasValue)
+        {
+            var allIds     = (await _cardRepo.GetIdsBySetIdAsync(request.SetId.Value, cancellationToken)).ToList();
+            var graded     = await _gradedRepo.GetByCardIdsAsync(allIds, cancellationToken);
+            var market     = await _priceRepo.GetByCardIdsAsync(allIds, cancellationToken);
+
+            cardsWithoutAnyPrice = allIds.Count(id =>
+                !graded.ContainsKey(id) && !market.ContainsKey(id));
+
+            cardsWithKeyGradesMissing = allIds.Count(id =>
+            {
+                if (!graded.TryGetValue(id, out var grades)) return true;
+                return !grades.Any(g =>
+                    string.Equals(g.GradingCompany, "PSA", StringComparison.OrdinalIgnoreCase)
+                    && KeyGrades.Contains(g.GradeValue));
+            });
+        }
+
         return new SyncPricesResultDto(
-            PricesUpserted: result.PricesUpserted,
-            CardsFailed:    result.CardsFailed,
-            Errors:         result.Errors.Count > 0 ? result.Errors : null);
+            PricesUpserted:           result.PricesUpserted,
+            CardsFailed:              result.CardsFailed,
+            Errors:                   result.Errors.Count > 0 ? result.Errors : null,
+            GradedByCompany:          result.GradedByCompany.Count > 0 ? result.GradedByCompany : null,
+            CardsWithoutAnyPrice:     cardsWithoutAnyPrice,
+            CardsWithKeyGradesMissing: cardsWithKeyGradesMissing);
     }
 }

@@ -40,6 +40,15 @@ export interface AiStatsDto {
   isEnabled:                boolean;
 }
 
+export interface SyncScheduleDto {
+  scheduledTime:       string | null;
+  isRecurring:         boolean;
+  nextRunAt:           string | null;
+  status:              'none' | 'pending' | 'running' | 'completed' | 'cancelled';
+  lastCompletedAt:     string | null;
+  lastPricesUpserted:  number | null;
+}
+
 export interface DashboardSummaryDto {
   recentlyScrapedCards: RecentlyScrapedCardDto[];
   cardsForSale:         ForSaleCardDto[];

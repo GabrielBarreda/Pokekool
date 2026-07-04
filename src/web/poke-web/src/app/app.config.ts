@@ -12,6 +12,7 @@ import { jwtInterceptor } from '@core/interceptors/jwt.interceptor';
 import { errorInterceptor } from '@core/interceptors/error.interceptor';
 import { loaderInterceptor } from '@core/interceptors/loader.interceptor';
 import { ThemeService } from '@core/services/theme.service';
+import { ThemeStore } from '@core/theme/theme.store';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -27,6 +28,12 @@ export const appConfig: ApplicationConfig = {
       provide: APP_INITIALIZER,
       useFactory: (theme: ThemeService) => () => theme.init(),
       deps: [ThemeService],
+      multi: true,
+    },
+    {
+      provide: APP_INITIALIZER,
+      useFactory: (themeStore: InstanceType<typeof ThemeStore>) => () => themeStore.init(),
+      deps: [ThemeStore],
       multi: true,
     },
   ],

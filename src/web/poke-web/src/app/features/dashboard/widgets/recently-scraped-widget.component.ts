@@ -15,12 +15,28 @@ import { RecentlyScrapedCardDto } from '../dashboard.models';
       <a routerLink="/bourse" cardHeaderAction class="widget-link">voir tout →</a>
 
       @if (cards.length === 0) {
-        <app-empty-state
-          icon="📭"
-          title="Aucune donnée importée aujourd'hui"
-          description="Le scraping des prix n'a pas encore tourné dans les dernières 24h."
-        />
+        @if (isSyncRunning) {
+          <div class="sync-running">
+            <span class="sync-running__dot"></span>
+            <div class="sync-running__text">
+              <strong>Sync de prix en cours</strong>
+              <span>Les données apparaîtront ici au fur et à mesure. Rafraîchissez dans quelques minutes.</span>
+            </div>
+          </div>
+        } @else {
+          <app-empty-state
+            icon="📭"
+            title="Aucune donnée importée aujourd'hui"
+            description="Le scraping des prix n'a pas encore tourné dans les dernières 24h."
+          />
+        }
       } @else {
+        @if (isSyncRunning) {
+          <div class="sync-badge">
+            <span class="sync-badge__dot"></span>
+            Sync en cours — données partielles
+          </div>
+        }
         <div class="scraped-scroll">
           @for (card of cards; track card.cardId) {
             <div class="scraped-card">
@@ -57,6 +73,45 @@ import { RecentlyScrapedCardDto } from '../dashboard.models';
       text-decoration: none;
       &:hover { text-decoration: underline; }
     }
+
+    /* ── Sync running states ──────────────────────────────── */
+    .sync-running {
+      display: flex; align-items: flex-start; gap: var(--space-3);
+      padding: var(--space-4);
+      background: color-mix(in srgb, var(--color-brand-primary) 8%, transparent);
+      border: 1px solid color-mix(in srgb, var(--color-brand-primary) 20%, transparent);
+      border-radius: var(--radius-md);
+    }
+    .sync-running__dot {
+      flex-shrink: 0; margin-top: 3px;
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--color-brand-primary);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    .sync-running__text {
+      display: flex; flex-direction: column; gap: 2px;
+      font-size: var(--font-size-xs);
+      strong { color: var(--color-text-primary); }
+      span   { color: var(--color-text-muted); line-height: 1.4; }
+    }
+
+    .sync-badge {
+      display: flex; align-items: center; gap: var(--space-2);
+      font-size: var(--font-size-xs); color: var(--color-text-muted);
+      margin-bottom: var(--space-2);
+    }
+    .sync-badge__dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--color-brand-primary);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.4; transform: scale(0.8); }
+    }
+
+    /* ── Card scroll ─────────────────────────────────────── */
     .scraped-scroll {
       display: flex;
       gap: var(--space-3);
@@ -110,6 +165,8 @@ import { RecentlyScrapedCardDto } from '../dashboard.models';
 })
 export class RecentlyScrapedWidgetComponent {
   @Input() cards: RecentlyScrapedCardDto[] = [];
+  /** true si un sync de prix est actuellement en cours */
+  @Input() isSyncRunning = false;
 
   relativeTime(isoDate: string): string {
     const diff = Date.now() - new Date(isoDate).getTime();

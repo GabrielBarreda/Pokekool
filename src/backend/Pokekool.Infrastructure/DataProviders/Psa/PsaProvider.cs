@@ -39,23 +39,26 @@ public sealed class PsaProvider : IPopulationProvider
         _logger   = logger;
     }
 
-    public async Task<CardPopulationData?> GetPopulationAsync(
-        string cardName, string setName, CancellationToken ct = default)
+    public async Task<IReadOnlyList<CardPopulationData>?> GetPopulationAsync(
+        CardPopulationRequest request, CancellationToken ct = default)
     {
-        var setSlug = NormalizeSlug(setName);
+        var setSlug = NormalizeSlug(request.SetName);
         var url     = $"{BaseUrl}/{setSlug}/";
 
-        _logger.LogInformation("PSA — fetch {Url} pour '{CardName}'", url, cardName);
+        _logger.LogInformation("PSA — fetch {Url} pour '{CardName}'", url, request.CardName);
 
         try
         {
             var raw = await _pipeline.ExecuteAsync<PsaResult>(url, JsonSchema, ct: ct);
-            if (raw is null) return null;
-            return MapToPopulationData(raw);
+            // Si aucune donnée utile (bot-block, page vide) → ne pas créer de ligne vide
+            if (raw is null || (raw.TotalGraded is null && raw.Pop10 is null)) return null;
+            return [MapToPopulationData(raw)];
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "PSA — erreur scraping pour '{CardName}' / '{SetName}'", cardName, setName);
+            _logger.LogWarning(ex,
+                "PSA — erreur scraping pour '{CardName}' / '{SetName}'",
+                request.CardName, request.SetName);
             return null;
         }
     }

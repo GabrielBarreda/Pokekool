@@ -2,11 +2,12 @@ import { Component, Input, Output, EventEmitter, inject, signal } from '@angular
 import { NgClass, NgIf } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthStore } from '@core/auth/auth.store';
+import { SyncProgressOverlayComponent } from '@app/layout/sync-progress-overlay/sync-progress-overlay.component';
 
 @Component({
   selector: 'app-topbar',
   standalone: true,
-  imports: [NgClass, NgIf],
+  imports: [NgClass, NgIf, SyncProgressOverlayComponent],
   template: `
     <header class="topbar">
 
@@ -21,6 +22,11 @@ import { AuthStore } from '@core/auth/auth.store';
           <span></span><span></span><span></span>
         </span>
       </button>
+
+      <!-- Sync progress overlay (centre topbar) -->
+      <div class="topbar__center">
+        <app-sync-progress-overlay />
+      </div>
 
       <!-- Spacer -->
       <div class="topbar__spacer"></div>
@@ -75,7 +81,13 @@ import { AuthStore } from '@core/auth/auth.store';
       flex-shrink: 0;
       z-index: var(--z-sticky);
     }
-    .topbar__spacer { flex: 1; }
+    .topbar__center {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+    }
+    .topbar__spacer { flex: 0 0 auto; }
 
     /* Burger */
     .topbar__burger {

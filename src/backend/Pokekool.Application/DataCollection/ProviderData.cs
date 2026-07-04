@@ -23,15 +23,27 @@ public sealed record CardData(
     string? ImageLarge,
     CardPriceData? Prices);
 
+/// <summary>
+/// Prix d'une carte retourné par un provider.
+/// Les prix gradés sont dans <see cref="GradedPrices"/> — une entrée par (société, note).
+/// </summary>
 public sealed record CardPriceData(
     string Source,
     decimal? RawMarketPrice,
-    decimal? Psa7,
-    decimal? Psa8,
-    decimal? Psa9,
-    decimal? Psa10,
-    string Currency,
-    DateTime FetchedAt);
+    IReadOnlyList<GradedPriceData>? GradedPrices = null,
+    string   Currency  = "USD",
+    DateTime FetchedAt = default);
+
+/// <summary>
+/// Prix pour un grade précis d'une société de notation.
+/// </summary>
+/// <param name="GradingCompany">Ex : "PSA", "BGS", "CGC", "SGC"</param>
+/// <param name="GradeValue">Ex : 10m, 9.5m, 9m, 1m …</param>
+/// <param name="Price">Prix en devise <see cref="CardPriceData.Currency"/></param>
+public sealed record GradedPriceData(
+    string  GradingCompany,
+    decimal GradeValue,
+    decimal Price);
 
 public sealed record CardPopulationData(
     string Source,
@@ -42,3 +54,14 @@ public sealed record CardPopulationData(
     int? Pop7,
     double? GemRate10,   // Pop10 / Total * 100
     DateTime FetchedAt);
+
+/// <summary>
+/// Contexte passé à chaque appel <see cref="IPopulationProvider.GetPopulationAsync"/>.
+/// Contient toutes les infos dont un provider peut avoir besoin (identifiants, noms, numéro de carte).
+/// </summary>
+public sealed record CardPopulationRequest(
+    Guid   CardId,
+    string CardName,
+    string CardNumber,
+    Guid   SetId,
+    string SetName);

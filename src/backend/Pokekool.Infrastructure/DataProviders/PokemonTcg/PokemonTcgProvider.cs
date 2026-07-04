@@ -106,7 +106,6 @@ internal sealed class PokemonTcgProvider : ICardMetadataProvider
                 return new CardPriceData(
                     Source:         "tcgplayer",
                     RawMarketPrice: variant.Market,
-                    Psa7:  null, Psa8: null, Psa9: null, Psa10: null,
                     Currency:       "USD",
                     FetchedAt:      DateTime.UtcNow);
         }
@@ -115,7 +114,6 @@ internal sealed class PokemonTcgProvider : ICardMetadataProvider
             return new CardPriceData(
                 Source:         "cardmarket",
                 RawMarketPrice: avg,
-                Psa7:  null, Psa8: null, Psa9: null, Psa10: null,
                 Currency:       "EUR",
                 FetchedAt:      DateTime.UtcNow);
 

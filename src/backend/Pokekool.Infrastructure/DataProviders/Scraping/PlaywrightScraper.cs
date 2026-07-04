@@ -76,10 +76,32 @@ public sealed class PlaywrightScraper : IWebScraper, IAsyncDisposable
         await using var context = await _browser!.NewContextAsync(contextOptions);
         var page = await SetupPageAsync(context, options);
 
-        await page.GotoAsync(url, new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded, Timeout = 30_000 });
+        // SPAs (React/Vue) : attendre NetworkIdle garantit que les XHR sont terminés.
+        // Sites server-rendered : DOMContentLoaded suffit (plus rapide).
+        var waitUntil = options.WaitForNetworkIdle
+            ? WaitUntilState.NetworkIdle
+            : WaitUntilState.DOMContentLoaded;
 
+        await page.GotoAsync(url, new PageGotoOptions { WaitUntil = waitUntil, Timeout = 30_000 });
+
+        // Délai supplémentaire après le chargement (rendu React, animations…)
         if (options.WaitForNetworkIdleMs > 0)
             await page.WaitForTimeoutAsync(options.WaitForNetworkIdleMs);
+
+        // Attente optionnelle d'un sélecteur CSS avant extraction
+        if (options.WaitForSelector is not null)
+        {
+            try
+            {
+                await page.WaitForSelectorAsync(options.WaitForSelector,
+                    new PageWaitForSelectorOptions { Timeout = 10_000 });
+            }
+            catch (TimeoutException)
+            {
+                _logger.LogWarning("EvaluateJs — WaitForSelector '{Sel}' timeout pour {Url}",
+                    options.WaitForSelector, url);
+            }
+        }
 
         try
         {

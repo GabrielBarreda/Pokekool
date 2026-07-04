@@ -24,12 +24,6 @@ public sealed class PokemonCardConfiguration : IEntityTypeConfiguration<PokemonC
         builder.Property(c => c.ImageSmall).HasColumnName("image_small").HasMaxLength(500);
         builder.Property(c => c.ImageLarge).HasColumnName("image_large").HasMaxLength(500);
         builder.Property(c => c.IsLegal).HasColumnName("is_legal").IsRequired();
-        builder.Property(c => c.CmProductId).HasColumnName("cm_product_id");
-        builder.Property(c => c.CmScrapingSlug).HasColumnName("cm_scraping_slug").HasMaxLength(200);
-        builder.Property(c => c.TcgPlayerProductId).HasColumnName("tcgplayer_product_id");
-
-        builder.HasIndex(c => c.TcgPlayerProductId)
-            .HasDatabaseName("ix_pokemon_cards_tcgplayer_product_id");
         builder.Property(c => c.CreatedAt).HasColumnName("created_at").IsRequired();
         builder.Property(c => c.UpdatedAt).HasColumnName("updated_at");
 

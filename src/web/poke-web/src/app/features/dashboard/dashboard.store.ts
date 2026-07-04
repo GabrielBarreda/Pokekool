@@ -3,12 +3,13 @@ import { signalStore, withState, withMethods, patchState } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { tapResponse } from '@ngrx/operators';
 import { pipe, switchMap, tap } from 'rxjs';
-import { DashboardSummaryDto } from './dashboard.models';
+import { DashboardSummaryDto, SyncScheduleDto } from './dashboard.models';
 import { DashboardService } from './dashboard.service';
 import { ToastService } from '@shared/services/toast.service';
 
 export interface DashboardState {
   summary:         DashboardSummaryDto | null;
+  syncStatus:      SyncScheduleDto | null;
   loading:         boolean;
   error:           string | null;
   lastRefreshedAt: Date | null;
@@ -16,6 +17,7 @@ export interface DashboardState {
 
 const initialState: DashboardState = {
   summary:         null,
+  syncStatus:      null,
   loading:         false,
   error:           null,
   lastRefreshedAt: null,
@@ -48,9 +50,26 @@ export const DashboardStore = signalStore(
       )
     );
 
+    const loadSyncStatus = rxMethod<void>(
+      pipe(
+        switchMap(() =>
+          svc.getSyncStatus().pipe(
+            tapResponse({
+              next: (syncStatus: SyncScheduleDto) => patchState(store, { syncStatus }),
+              error: () => { /* silencieux — pas critique */ },
+            })
+          )
+        )
+      )
+    );
+
     return {
       loadSummary,
-      refresh: () => loadSummary(),
+      loadSyncStatus,
+      refresh: () => {
+        loadSummary();
+        loadSyncStatus();
+      },
     };
   })
 );

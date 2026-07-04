@@ -37,4 +37,10 @@ public sealed record ScraperOptions(
     string? WaitForSelector = null,
     bool BlockImages = true,
     bool BlockFonts = true,
-    Dictionary<string, string>? Headers = null);
+    Dictionary<string, string>? Headers = null,
+    /// <summary>
+    /// Si true, attend l'état NetworkIdle (aucune requête réseau pendant 500ms) au lieu de
+    /// DOMContentLoaded. Indispensable pour les SPAs / sites qui chargent leurs données en XHR.
+    /// WaitForNetworkIdleMs est appliqué en délai supplémentaire après l'idle.
+    /// </summary>
+    bool WaitForNetworkIdle = false);

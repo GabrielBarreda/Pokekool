@@ -18,11 +18,6 @@ public sealed class CardMarketPriceConfiguration : IEntityTypeConfiguration<Card
         builder.Property(p => p.MarketPrice).HasColumnName("market_price").HasPrecision(10, 2);
         builder.Property(p => p.LowPrice).HasColumnName("low_price").HasPrecision(10, 2);
         builder.Property(p => p.HighPrice).HasColumnName("high_price").HasPrecision(10, 2);
-        builder.Property(p => p.Psa7).HasColumnName("psa7").HasPrecision(10, 2);
-        builder.Property(p => p.Psa8).HasColumnName("psa8").HasPrecision(10, 2);
-        builder.Property(p => p.Psa9).HasColumnName("psa9").HasPrecision(10, 2);
-        builder.Property(p => p.Psa95).HasColumnName("psa9_5").HasPrecision(10, 2);
-        builder.Property(p => p.Psa10).HasColumnName("psa10").HasPrecision(10, 2);
         builder.Property(p => p.Currency).HasColumnName("currency").HasMaxLength(3).IsRequired();
         builder.Property(p => p.FetchedAt).HasColumnName("fetched_at").IsRequired();
         builder.Property(p => p.CreatedAt).HasColumnName("created_at").IsRequired();

@@ -82,10 +82,6 @@ public sealed class MavinProvider : ICardPriceProvider
             return new CardPriceData(
                 Source:         "mavin",
                 RawMarketPrice: raw.AveragePrice,
-                Psa7:           null,
-                Psa8:           null,
-                Psa9:           null,
-                Psa10:          null,
                 Currency:       "USD",
                 FetchedAt:      DateTime.UtcNow);
         }

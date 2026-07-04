@@ -100,6 +100,69 @@ namespace Pokekool.Infrastructure.Migrations
                     b.ToTable("roles", (string)null);
                 });
 
+            modelBuilder.Entity("Pokekool.Domain.Entities.Pokemon.CardGradedPrice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CardId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("card_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency");
+
+                    b.Property<DateTime>("FetchedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fetched_at");
+
+                    b.Property<decimal>("GradeValue")
+                        .HasPrecision(3, 1)
+                        .HasColumnType("numeric(3,1)")
+                        .HasColumnName("grade_value");
+
+                    b.Property<string>("GradingCompany")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("grading_company");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)")
+                        .HasColumnName("price");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("source");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CardId")
+                        .HasDatabaseName("ix_card_graded_prices_card_id");
+
+                    b.HasIndex("CardId", "Source", "GradingCompany", "GradeValue")
+                        .IsUnique()
+                        .HasDatabaseName("ux_card_graded_prices_card_source_company_grade");
+
+                    b.ToTable("card_graded_prices", (string)null);
+                });
+
             modelBuilder.Entity("Pokekool.Domain.Entities.Pokemon.CardMarketPrice", b =>
                 {
                     b.Property<Guid>("Id")
@@ -139,31 +202,6 @@ namespace Pokekool.Infrastructure.Migrations
                         .HasPrecision(10, 2)
                         .HasColumnType("numeric(10,2)")
                         .HasColumnName("market_price");
-
-                    b.Property<decimal?>("Psa10")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("psa10");
-
-                    b.Property<decimal?>("Psa7")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("psa7");
-
-                    b.Property<decimal?>("Psa8")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("psa8");
-
-                    b.Property<decimal?>("Psa9")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("psa9");
-
-                    b.Property<decimal?>("Psa95")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)")
-                        .HasColumnName("psa9_5");
 
                     b.Property<string>("Source")
                         .IsRequired()
@@ -264,15 +302,6 @@ namespace Pokekool.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<int?>("CmProductId")
-                        .HasColumnType("integer")
-                        .HasColumnName("cm_product_id");
-
-                    b.Property<string>("CmScrapingSlug")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("cm_scraping_slug");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -331,10 +360,6 @@ namespace Pokekool.Infrastructure.Migrations
                         .HasColumnType("character varying(80)")
                         .HasColumnName("tcg_id");
 
-                    b.Property<int?>("TcgPlayerProductId")
-                        .HasColumnType("integer")
-                        .HasColumnName("tcgplayer_product_id");
-
                     b.Property<string[]>("Types")
                         .HasColumnType("jsonb")
                         .HasColumnName("types");
@@ -357,9 +382,6 @@ namespace Pokekool.Infrastructure.Migrations
                     b.HasIndex("TcgId")
                         .IsUnique()
                         .HasDatabaseName("ux_pokemon_cards_tcg_id");
-
-                    b.HasIndex("TcgPlayerProductId")
-                        .HasDatabaseName("ix_pokemon_cards_tcgplayer_product_id");
 
                     b.ToTable("pokemon_cards", (string)null);
                 });
@@ -412,10 +434,6 @@ namespace Pokekool.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<int?>("CmExpansionId")
-                        .HasColumnType("integer")
-                        .HasColumnName("cm_expansion_id");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -430,11 +448,6 @@ namespace Pokekool.Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("name");
-
-                    b.Property<string>("PriceChartingSlug")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("pricecharting_slug");
 
                     b.Property<int?>("PrintedTotal")
                         .HasColumnType("integer")
@@ -464,10 +477,6 @@ namespace Pokekool.Infrastructure.Migrations
                         .HasColumnType("character varying(80)")
                         .HasColumnName("tcg_id");
 
-                    b.Property<int?>("TcgPlayerGroupId")
-                        .HasColumnType("integer")
-                        .HasColumnName("tcgplayer_group_id");
-
                     b.Property<int?>("TotalCards")
                         .HasColumnType("integer")
                         .HasColumnName("total_cards");
@@ -485,6 +494,104 @@ namespace Pokekool.Infrastructure.Migrations
                         .HasDatabaseName("ux_pokemon_sets_tcg_id");
 
                     b.ToTable("pokemon_sets", (string)null);
+                });
+
+            modelBuilder.Entity("Pokekool.Domain.Entities.Pokemon.ProviderCardMapping", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CardId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("card_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("key");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("provider");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("value");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Provider", "Key")
+                        .HasDatabaseName("ix_provider_card_mappings_provider_key");
+
+                    b.HasIndex("CardId", "Provider", "Key")
+                        .IsUnique()
+                        .HasDatabaseName("ux_provider_card_mappings_card_provider_key");
+
+                    b.ToTable("provider_card_mappings", (string)null);
+                });
+
+            modelBuilder.Entity("Pokekool.Domain.Entities.Pokemon.ProviderSetMapping", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("key");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("provider");
+
+                    b.Property<Guid>("SetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("set_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("value");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Provider", "Key")
+                        .HasDatabaseName("ix_provider_set_mappings_provider_key");
+
+                    b.HasIndex("SetId", "Provider", "Key")
+                        .IsUnique()
+                        .HasDatabaseName("ux_provider_set_mappings_set_provider_key");
+
+                    b.ToTable("provider_set_mappings", (string)null);
                 });
 
             modelBuilder.Entity("Pokekool.Domain.Entities.Pokemon.UserCollection", b =>
@@ -671,6 +778,17 @@ namespace Pokekool.Infrastructure.Migrations
                     b.Navigation("Permissions");
                 });
 
+            modelBuilder.Entity("Pokekool.Domain.Entities.Pokemon.CardGradedPrice", b =>
+                {
+                    b.HasOne("Pokekool.Domain.Entities.Pokemon.PokemonCard", "Card")
+                        .WithMany()
+                        .HasForeignKey("CardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Card");
+                });
+
             modelBuilder.Entity("Pokekool.Domain.Entities.Pokemon.CardMarketPrice", b =>
                 {
                     b.HasOne("Pokekool.Domain.Entities.Pokemon.PokemonCard", "Card")
@@ -713,6 +831,28 @@ namespace Pokekool.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("SeriesEntity");
+                });
+
+            modelBuilder.Entity("Pokekool.Domain.Entities.Pokemon.ProviderCardMapping", b =>
+                {
+                    b.HasOne("Pokekool.Domain.Entities.Pokemon.PokemonCard", "Card")
+                        .WithMany()
+                        .HasForeignKey("CardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Card");
+                });
+
+            modelBuilder.Entity("Pokekool.Domain.Entities.Pokemon.ProviderSetMapping", b =>
+                {
+                    b.HasOne("Pokekool.Domain.Entities.Pokemon.PokemonSet", "Set")
+                        .WithMany()
+                        .HasForeignKey("SetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Set");
                 });
 
             modelBuilder.Entity("Pokekool.Domain.Entities.Pokemon.UserCollection", b =>

@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Pokekool.Application.Abstractions;
 using Pokekool.Domain.Entities.Pokemon;
@@ -11,26 +13,30 @@ namespace Pokekool.Application.DataCollection;
 /// </summary>
 public sealed class DataAggregator
 {
-    private readonly IEnumerable<ICardMetadataProvider> _metadataProviders;
-    private readonly IEnumerable<ICardPriceProvider> _priceProviders;
-    private readonly IPokemonSeriesRepository _seriesRepo;
-    private readonly IPokemonSetRepository _setRepo;
-    private readonly IPokemonCardRepository _cardRepo;
-    private readonly ICardMarketPriceRepository _priceRepo;
-    private readonly IUnitOfWork _uow;
-    private readonly ILogger<DataAggregator> _logger;
-    private readonly ISyncProgressReporter _progress;
+    private readonly IEnumerable<ICardMetadataProvider>  _metadataProviders;
+    private readonly IEnumerable<ICardPriceProvider>     _priceProviders;
+    private readonly IPokemonSeriesRepository            _seriesRepo;
+    private readonly IPokemonSetRepository               _setRepo;
+    private readonly IPokemonCardRepository              _cardRepo;
+    private readonly ICardMarketPriceRepository          _priceRepo;
+    private readonly ICardGradedPriceRepository          _gradedPriceRepo;
+    private readonly IUnitOfWork                         _uow;
+    private readonly ILogger<DataAggregator>             _logger;
+    private readonly ISyncProgressReporter               _progress;
+    private readonly IServiceScopeFactory                _scopeFactory;
 
     public DataAggregator(
-        IEnumerable<ICardMetadataProvider> metadataProviders,
-        IEnumerable<ICardPriceProvider> priceProviders,
-        IPokemonSeriesRepository seriesRepo,
-        IPokemonSetRepository setRepo,
-        IPokemonCardRepository cardRepo,
-        ICardMarketPriceRepository priceRepo,
-        IUnitOfWork uow,
-        ILogger<DataAggregator> logger,
-        ISyncProgressReporter progress)
+        IEnumerable<ICardMetadataProvider>  metadataProviders,
+        IEnumerable<ICardPriceProvider>     priceProviders,
+        IPokemonSeriesRepository            seriesRepo,
+        IPokemonSetRepository               setRepo,
+        IPokemonCardRepository              cardRepo,
+        ICardMarketPriceRepository          priceRepo,
+        ICardGradedPriceRepository          gradedPriceRepo,
+        IUnitOfWork                         uow,
+        ILogger<DataAggregator>             logger,
+        ISyncProgressReporter               progress,
+        IServiceScopeFactory                scopeFactory)
     {
         _metadataProviders = metadataProviders;
         _priceProviders    = priceProviders;
@@ -38,9 +44,11 @@ public sealed class DataAggregator
         _setRepo           = setRepo;
         _cardRepo          = cardRepo;
         _priceRepo         = priceRepo;
+        _gradedPriceRepo   = gradedPriceRepo;
         _uow               = uow;
         _logger            = logger;
         _progress          = progress;
+        _scopeFactory      = scopeFactory;
     }
 
     /// <summary>
@@ -57,7 +65,6 @@ public sealed class DataAggregator
         if (provider is null)
             return new SyncCatalogResult(0, 0, 0, 0, ["Aucun ICardMetadataProvider enregistré."]);
 
-        // Un set ciblé implique toujours un force-refresh sur ce set
         if (setTcgId is not null) forceRefresh = true;
 
         _logger.LogInformation(
@@ -67,9 +74,8 @@ public sealed class DataAggregator
         var errors = new List<string>();
         int seriesUpserted = 0, setsUpserted = 0, cardsUpserted = 0, pricesUpserted = 0;
 
-        // Charger les séries existantes en cache local
         var existingSeriesAll = await _seriesRepo.ListAsync(ct);
-        var seriesByName = existingSeriesAll
+        var seriesByName      = existingSeriesAll
             .ToDictionary(s => s.Name, s => s, StringComparer.OrdinalIgnoreCase);
 
         IReadOnlyList<CardSetData> sets;
@@ -83,7 +89,6 @@ public sealed class DataAggregator
             return new SyncCatalogResult(0, 0, 0, 0, [ex.Message]);
         }
 
-        // Filtre par set si ciblé
         if (setTcgId is not null)
         {
             sets = sets.Where(s => s.ProviderSetId == setTcgId).ToList();
@@ -139,10 +144,8 @@ public sealed class DataAggregator
                     setData.LogoUrl);
             }
 
-            // Sauvegarder série + set avant les cartes (clés étrangères)
             await _uow.SaveChangesAsync(ct);
 
-            // ---- Skip si déjà synchronisé et pas de force ----
             if (!forceRefresh && existingSet is not null && existingSet.Cards.Count > 0)
             {
                 _logger.LogDebug("Set {SetId} déjà synchronisé, skip.", setData.ProviderSetId);
@@ -163,8 +166,9 @@ public sealed class DataAggregator
                 continue;
             }
 
-            var newCards     = new List<PokemonCard>();
-            var pricesToSave = new List<CardMarketPrice>();
+            var newCards         = new List<PokemonCard>();
+            var pricesToSave     = new List<CardMarketPrice>();
+            var gradedToSave     = new List<CardGradedPrice>();
 
             foreach (var cardData in cards)
             {
@@ -204,7 +208,10 @@ public sealed class DataAggregator
                 }
 
                 if (cardData.Prices is { } priceData)
+                {
                     pricesToSave.Add(MapToMarketPrice(cardEntity.Id, priceData));
+                    gradedToSave.AddRange(MapToGradedPrices(cardEntity.Id, priceData));
+                }
             }
 
             if (newCards.Count > 0)
@@ -219,9 +226,15 @@ public sealed class DataAggregator
                 pricesUpserted += pricesToSave.Count;
             }
 
+            if (gradedToSave.Count > 0)
+            {
+                await _gradedPriceRepo.UpsertBatchAsync(gradedToSave, ct);
+                await _uow.SaveChangesAsync(ct);
+            }
+
             _logger.LogInformation(
-                "Set {SetId} : {Cards} cartes, {Prices} prix.",
-                setData.ProviderSetId, cards.Count, pricesToSave.Count);
+                "Set {SetId} : {Cards} cartes, {Prices} prix bruts, {Graded} prix gradés.",
+                setData.ProviderSetId, cards.Count, pricesToSave.Count, gradedToSave.Count);
         }
 
         _logger.LogInformation(
@@ -233,24 +246,28 @@ public sealed class DataAggregator
 
     /// <summary>
     /// Met à jour les prix des cartes indiquées en interrogeant tous les ICardPriceProvider enregistrés.
-    /// Merge : on garde le prix le plus récent par (source, variant).
+    /// Traitement parallèle contrôlé (MaxParallelism=3) + écriture en BDD par batch de BatchSize cartes.
     /// </summary>
     public async Task<SyncPricesResult> SyncPricesAsync(
         IEnumerable<Guid> cardIds, CancellationToken ct = default)
     {
-        var ids = cardIds.ToList();
+        var ids    = cardIds.ToList();
         var errors = new List<string>();
-        int pricesUpserted = 0, cardsFailed = 0;
+        int pricesUpserted = 0;
+        int cardsFailed    = 0;
 
         var providers = _priceProviders.ToList();
         if (providers.Count == 0)
         {
             _logger.LogWarning("SyncPricesAsync appelé mais aucun ICardPriceProvider enregistré.");
-            return new SyncPricesResult(0, 0, ["Aucun ICardPriceProvider enregistré."]);
+            return new SyncPricesResult(0, 0, ["Aucun ICardPriceProvider enregistré."],
+                new Dictionary<string, int>(), 0, 0);
         }
 
-        // Résoudre TcgId pour chaque carte
+        // ── Pre-load : TcgId + infos carte (Set inclus) ─────────────────────
+        var cardInfoById  = new Dictionary<Guid, PokemonCard>();
         var cardIdToTcgId = new Dictionary<Guid, string>();
+
         foreach (var cardId in ids)
         {
             var card = await _cardRepo.GetByIdAsync(cardId, ct);
@@ -260,78 +277,181 @@ public sealed class DataAggregator
                 cardsFailed++;
                 continue;
             }
+            cardInfoById[cardId]  = card;
             cardIdToTcgId[cardId] = card.TcgId;
         }
 
-        // Index card info for progress reporting (card + set already loaded above)
-        var cardInfoById = new Dictionary<Guid, PokemonCard>();
-        foreach (var cardId in ids)
+        // ── Sync par provider — tous en parallèle, DB sérialisée ────────────
+        // Chaque provider tourne sur son propre thread (un site = un thread).
+        // La concurrence au sein d'un provider reste limitée à MaxParallelism.
+        // Chaque provider a son propre scope IServiceScope pour les écritures —
+        // DbContext isolé par provider, pas de conflit EF Core entre providers parallèles.
+        var providerResults = new ConcurrentBag<(int written, int failed, List<string> errs, Dictionary<string, int> gradedByCompany)>();
+
+        var providerTasks = providers.Select(provider => RunProviderAsync(
+            provider, cardIdToTcgId, cardInfoById,
+            providerResults, ct)).ToList();
+
+        await Task.WhenAll(providerTasks);
+
+        var gradedByCompany = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (written, failed, errs, graded) in providerResults)
         {
-            if (cardIdToTcgId.ContainsKey(cardId))
+            pricesUpserted += written;
+            cardsFailed    += failed;
+            errors.AddRange(errs);
+            foreach (var (company, count) in graded)
             {
-                var card = await _cardRepo.GetByIdAsync(cardId, ct);  // inclut Set via Include
-                if (card is not null) cardInfoById[cardId] = card;
+                gradedByCompany.TryGetValue(company, out var existing);
+                gradedByCompany[company] = existing + count;
             }
         }
 
-        foreach (var provider in providers)
-        {
-            var toUpsert = new List<CardMarketPrice>();
+        return new SyncPricesResult(pricesUpserted, cardsFailed, errors, gradedByCompany, 0, 0);
+    }
 
-            foreach (var (cardId, tcgId) in cardIdToTcgId)
+    // ── RunProviderAsync ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Exécute un provider sur toutes les cartes avec MaxParallelism concurrence interne.
+    /// Les écritures BDD se font dans un IServiceScope isolé par provider (DbContext dédié).
+    /// </summary>
+    private async Task RunProviderAsync(
+        ICardPriceProvider                                                                        provider,
+        Dictionary<Guid, string>                                                                  cardIdToTcgId,
+        Dictionary<Guid, PokemonCard>                                                             cardInfoById,
+        ConcurrentBag<(int written, int failed, List<string> errs, Dictionary<string, int> gradedByCompany)> results,
+        CancellationToken                                                                         ct)
+    {
+        const int BatchSize      = 100;
+        const int MaxParallelism = 3;
+
+        var cardList          = cardIdToTcgId.ToList();
+        int totalWritten      = 0;
+        int totalFailed       = 0;
+        var errs              = new List<string>();
+        var gradedByCompany   = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        using var semaphore = new SemaphoreSlim(MaxParallelism, MaxParallelism);
+
+        for (int offset = 0; offset < cardList.Count; offset += BatchSize)
+        {
+            if (ct.IsCancellationRequested) break;
+
+            var chunk     = cardList.Skip(offset).Take(BatchSize).ToList();
+            var chunkBag  = new ConcurrentBag<CardMarketPrice>();
+            var gradedBag = new ConcurrentBag<CardGradedPrice>();
+            int chunkFail = 0;
+            var chunkErrs = new ConcurrentBag<string>();
+
+            var tasks = chunk.Select(async kvp =>
             {
-                CardPriceData? priceData;
+                var (cardId, tcgId) = kvp;
+                await semaphore.WaitAsync(ct);
                 try
                 {
-                    priceData = await provider.GetPriceAsync(tcgId, ct);
-                }
-                catch (ProviderException ex)
-                {
-                    var msg = $"Provider '{ex.ProviderName}' a échoué sur carte '{tcgId}' : {ex.Message}";
-                    _logger.LogWarning(ex, "{Message}", msg);
-                    errors.Add(msg);
-                    cardsFailed++;
-
-                    // Émet un event d'échec pour le ticker
-                    if (cardInfoById.TryGetValue(cardId, out var failedCard))
-                        _progress.Report(new SyncProgressEvent(
-                            failedCard.Set?.Name ?? "?",
-                            failedCard.Name,
-                            failedCard.Number,
-                            [],
-                            Success: false,
-                            DateTime.UtcNow));
-                    continue;
-                }
-
-                if (priceData is not null)
-                {
-                    toUpsert.Add(MapToMarketPrice(cardId, priceData));
-
-                    // Émet un event de succès pour le ticker
-                    if (cardInfoById.TryGetValue(cardId, out var successCard))
+                    CardPriceData? priceData;
+                    try
                     {
-                        var grades = BuildGradeLabels(priceData);
-                        _progress.Report(new SyncProgressEvent(
-                            successCard.Set?.Name ?? "?",
-                            successCard.Name,
-                            successCard.Number,
-                            grades,
-                            Success: true,
-                            DateTime.UtcNow));
+                        priceData = await provider.GetPriceAsync(tcgId, ct);
+                    }
+                    catch (ProviderException ex)
+                    {
+                        var msg = $"Provider '{ex.ProviderName}' — carte '{tcgId}' : {ex.Message}";
+                        _logger.LogWarning(ex, "{Message}", msg);
+                        chunkErrs.Add(msg);
+                        Interlocked.Increment(ref chunkFail);
+
+                        if (cardInfoById.TryGetValue(cardId, out var failedCard))
+                            _progress.Report(new SyncProgressEvent(
+                                failedCard.Set?.Name ?? "?",
+                                failedCard.Name,
+                                failedCard.Number,
+                                [],
+                                Success: false,
+                                DateTime.UtcNow));
+                        return;
+                    }
+
+                    if (priceData is not null)
+                    {
+                        chunkBag.Add(MapToMarketPrice(cardId, priceData));
+                        foreach (var g in MapToGradedPrices(cardId, priceData))
+                            gradedBag.Add(g);
+
+                        if (cardInfoById.TryGetValue(cardId, out var successCard))
+                            _progress.Report(new SyncProgressEvent(
+                                successCard.Set?.Name ?? "?",
+                                successCard.Name,
+                                successCard.Number,
+                                BuildGradeLabels(priceData),
+                                Success: true,
+                                DateTime.UtcNow));
+                    }
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            }).ToList();
+
+            await Task.WhenAll(tasks);
+
+            // ── Flush BDD (sérialisé entre providers) ─────────────────────────
+            totalFailed += chunkFail;
+            foreach (var e in chunkErrs) errs.Add(e);
+
+            var toWrite     = chunkBag.ToList();
+            var gradedWrite = gradedBag.ToList();
+
+            if (toWrite.Count > 0 || gradedWrite.Count > 0)
+            {
+                // Chaque provider a son propre scope d'écriture → son propre DbContext.
+                // Plus de conflit EF Core entre providers parallèles.
+                using var writeScope = _scopeFactory.CreateScope();
+                var priceRepo   = writeScope.ServiceProvider.GetRequiredService<ICardMarketPriceRepository>();
+                var gradedRepo  = writeScope.ServiceProvider.GetRequiredService<ICardGradedPriceRepository>();
+                var uow         = writeScope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+
+                if (toWrite.Count > 0)
+                {
+                    await priceRepo.UpsertBatchAsync(toWrite, ct);
+                    await uow.SaveChangesAsync(ct);
+                    totalWritten += toWrite.Count;
+                }
+                if (gradedWrite.Count > 0)
+                {
+                    await gradedRepo.UpsertBatchAsync(gradedWrite, ct);
+                    await uow.SaveChangesAsync(ct);
+
+                    // Compter les grades écrits par société (PSA, CGC, BGS…)
+                    foreach (var g in gradedWrite)
+                    {
+                        if (string.IsNullOrWhiteSpace(g.GradingCompany)) continue;
+                        gradedByCompany.TryGetValue(g.GradingCompany, out var c);
+                        gradedByCompany[g.GradingCompany] = c + 1;
                     }
                 }
             }
 
-            if (toUpsert.Count > 0)
-            {
-                await _priceRepo.UpsertBatchAsync(toUpsert, ct);
-                await _uow.SaveChangesAsync(ct);
-                pricesUpserted += toUpsert.Count;
-            }
+            int done = Math.Min(offset + BatchSize, cardList.Count);
+            if (done % 500 == 0 || done == cardList.Count)
+                _logger.LogInformation(
+                    "SyncPricesAsync [{Provider}] — {Done}/{Total} ({Percent}%), {Written} prix.",
+                    provider.Name, done, cardList.Count,
+                    (int)(done * 100.0 / cardList.Count), totalWritten);
+            else
+                _logger.LogDebug(
+                    "SyncPricesAsync [{Provider}] — batch {Batch} : {Count} prix (total {Written}).",
+                    provider.Name, (offset / BatchSize) + 1, toWrite.Count, totalWritten);
         }
 
-        return new SyncPricesResult(pricesUpserted, cardsFailed, errors);
+        _logger.LogInformation(
+            "SyncPricesAsync [{Provider}] terminé : {Upserted} prix, {Failed} erreurs.",
+            provider.Name, totalWritten, totalFailed);
+
+        results.Add((totalWritten, totalFailed, errs, gradedByCompany));
     }
 
     // ---- Helpers ----
@@ -344,12 +464,10 @@ public sealed class DataAggregator
 
     private static string[] BuildGradeLabels(CardPriceData data)
     {
-        var labels = new List<string>();
-        if (data.Psa7  is not null) labels.Add("PSA7");
-        if (data.Psa8  is not null) labels.Add("PSA8");
-        if (data.Psa9  is not null) labels.Add("PSA9");
-        if (data.Psa10 is not null) labels.Add("PSA10");
-        return labels.ToArray();
+        if (data.GradedPrices is null or { Count: 0 }) return [];
+        return data.GradedPrices
+            .Select(g => $"{g.GradingCompany}{g.GradeValue:0.#}")
+            .ToArray();
     }
 
     private static CardMarketPrice MapToMarketPrice(Guid cardId, CardPriceData data)
@@ -360,12 +478,22 @@ public sealed class DataAggregator
             marketPrice: data.RawMarketPrice,
             lowPrice:    null,
             highPrice:   null,
-            currency:    data.Currency,
-            psa7:        data.Psa7,
-            psa8:        data.Psa8,
-            psa9:        data.Psa9,
-            psa95:       null,   // PriceCharting ne retourne pas de 9.5 distinct
-            psa10:       data.Psa10);
+            currency:    data.Currency);
+
+    private static List<CardGradedPrice> MapToGradedPrices(Guid cardId, CardPriceData data)
+    {
+        if (data.GradedPrices is null or { Count: 0 }) return [];
+
+        return data.GradedPrices
+            .Select(g => CardGradedPrice.Create(
+                cardId,
+                data.Source,
+                g.GradingCompany,
+                g.GradeValue,
+                g.Price,
+                data.Currency))
+            .ToList();
+    }
 }
 
 public sealed record SyncCatalogResult(
@@ -378,4 +506,7 @@ public sealed record SyncCatalogResult(
 public sealed record SyncPricesResult(
     int PricesUpserted,
     int CardsFailed,
-    IReadOnlyList<string> Errors);
+    IReadOnlyList<string> Errors,
+    IReadOnlyDictionary<string, int> GradedByCompany,
+    int CardsWithoutAnyPrice,
+    int CardsWithKeyGradesMissing);

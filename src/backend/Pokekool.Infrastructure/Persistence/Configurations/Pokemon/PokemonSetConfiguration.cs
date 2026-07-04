@@ -21,9 +21,6 @@ public sealed class PokemonSetConfiguration : IEntityTypeConfiguration<PokemonSe
         builder.Property(s => s.PrintedTotal).HasColumnName("printed_total");
         builder.Property(s => s.SymbolUrl).HasColumnName("symbol_url").HasMaxLength(500);
         builder.Property(s => s.LogoUrl).HasColumnName("logo_url").HasMaxLength(500);
-        builder.Property(s => s.PriceChartingSlug).HasColumnName("pricecharting_slug").HasMaxLength(100);
-        builder.Property(s => s.CmExpansionId).HasColumnName("cm_expansion_id");
-        builder.Property(s => s.TcgPlayerGroupId).HasColumnName("tcgplayer_group_id");
         builder.Property(s => s.CreatedAt).HasColumnName("created_at").IsRequired();
         builder.Property(s => s.UpdatedAt).HasColumnName("updated_at");
 

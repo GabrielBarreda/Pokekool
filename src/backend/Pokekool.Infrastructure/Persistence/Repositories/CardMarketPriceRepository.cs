@@ -39,13 +39,9 @@ internal sealed class CardMarketPriceRepository : ICardMarketPriceRepository
                 p.Variant == price.Variant, ct);
 
         if (existing is null)
-        {
             await _db.CardMarketPrices.AddAsync(price, ct);
-        }
         else
-        {
             existing.UpdatePrices(price.MarketPrice, price.LowPrice, price.HighPrice);
-        }
     }
 
     public async Task UpsertBatchAsync(IEnumerable<CardMarketPrice> prices, CancellationToken ct = default)
@@ -53,8 +49,7 @@ internal sealed class CardMarketPriceRepository : ICardMarketPriceRepository
         var priceList = prices.ToList();
         if (priceList.Count == 0) return;
 
-        // Charger toutes les entrées existantes pour les cartes concernées en un seul aller-retour
-        var cardIds = priceList.Select(p => p.CardId).ToHashSet();
+        var cardIds  = priceList.Select(p => p.CardId).ToHashSet();
         var existing = await _db.CardMarketPrices
             .Where(p => cardIds.Contains(p.CardId))
             .ToListAsync(ct);
@@ -68,15 +63,9 @@ internal sealed class CardMarketPriceRepository : ICardMarketPriceRepository
         {
             var key = (price.CardId, price.Source, price.Variant ?? string.Empty);
             if (existingLookup.TryGetValue(key, out var found))
-            {
-                found.UpdatePrices(
-                    price.MarketPrice, price.LowPrice, price.HighPrice,
-                    price.Psa7, price.Psa8, price.Psa9, price.Psa95, price.Psa10);
-            }
+                found.UpdatePrices(price.MarketPrice, price.LowPrice, price.HighPrice);
             else
-            {
                 toInsert.Add(price);
-            }
         }
 
         if (toInsert.Count > 0)
@@ -88,14 +77,12 @@ internal sealed class CardMarketPriceRepository : ICardMarketPriceRepository
     {
         var cutoff = DateTime.UtcNow.AddHours(-olderThanHours);
 
-        // IDs des cartes qui ont un prix récent pour cette source
         var freshIds = (await _db.CardMarketPrices
             .Where(p => p.Source == source && p.FetchedAt >= cutoff)
             .Select(p => p.CardId)
             .ToListAsync(ct))
             .ToHashSet();
 
-        // Toutes les cartes (filtrées par set si demandé) sauf les fraîches
         var query = _db.PokemonCards.Where(c => !freshIds.Contains(c.Id));
         if (setId.HasValue)
             query = query.Where(c => c.SetId == setId.Value);

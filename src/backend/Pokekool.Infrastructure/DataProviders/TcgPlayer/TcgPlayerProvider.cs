@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging;
 using Pokekool.Application.DataCollection;
+using Pokekool.Domain.Entities.Pokemon;
 using Pokekool.Domain.Repositories;
+using ProviderKeys = Pokekool.Domain.Entities.Pokemon.ProviderKeys;
 
 namespace Pokekool.Infrastructure.DataProviders.TcgPlayer;
 
@@ -14,25 +16,35 @@ namespace Pokekool.Infrastructure.DataProviders.TcgPlayer;
 ///
 /// Batch : les productIds sont regroupés en appels /pricing/product/{ids} (max 250/requête).
 /// </summary>
-internal sealed class TcgPlayerProvider : ICardPriceProvider
+internal sealed class TcgPlayerProvider : ICardPriceProvider, IDisposable
 {
     public string Name => "tcgplayer";
 
     public ProviderCapability Capabilities => ProviderCapability.MarketPrices;
 
-    private readonly ITcgPlayerClient _client;
-    private readonly IPokemonCardRepository _cardRepo;
+    private readonly ITcgPlayerClient           _client;
+    private readonly IPokemonCardRepository     _cardRepo;
+    private readonly IProviderMappingRepository _mappingRepo;
     private readonly ILogger<TcgPlayerProvider> _logger;
+    // Sémaphore partagé via DbConcurrencyGuard (scoped) — sérialise les accès DB
+    // entre tous les providers qui tournent en parallèle dans DataAggregator.
+    private readonly SemaphoreSlim _dbSemaphore;
 
     public TcgPlayerProvider(
-        ITcgPlayerClient client,
-        IPokemonCardRepository cardRepo,
-        ILogger<TcgPlayerProvider> logger)
+        ITcgPlayerClient           client,
+        IPokemonCardRepository     cardRepo,
+        IProviderMappingRepository mappingRepo,
+        ILogger<TcgPlayerProvider> logger,
+        DbConcurrencyGuard         dbGuard)
     {
-        _client   = client;
-        _cardRepo = cardRepo;
-        _logger   = logger;
+        _client      = client;
+        _cardRepo    = cardRepo;
+        _mappingRepo = mappingRepo;
+        _logger      = logger;
+        _dbSemaphore = dbGuard.Semaphore;
     }
+
+    public void Dispose() { /* _dbSemaphore appartient au DbConcurrencyGuard scoped */ }
 
     // ── ICardPriceProvider ────────────────────────────────────────────────────
 
@@ -59,17 +71,32 @@ internal sealed class TcgPlayerProvider : ICardPriceProvider
 
             try
             {
-                var card = await _cardRepo.GetByTcgIdAsync(tcgId, ct);
-                if (card?.TcgPlayerProductId is null)
+                PokemonCard? card;
+                await _dbSemaphore.WaitAsync(ct);
+                try
+                {
+                    card = await _cardRepo.GetByTcgIdAsync(tcgId, ct);
+                }
+                finally
+                {
+                    _dbSemaphore.Release();
+                }
+
+                if (card is null) continue;
+
+                var productIdStr = await _mappingRepo.GetCardValueAsync(
+                    card.Id, ProviderKeys.TcgPlayer, ProviderKeys.ProductId, ct);
+
+                if (productIdStr is null || !int.TryParse(productIdStr, out var productId))
                 {
                     _logger.LogDebug(
-                        "TcgPlayerProvider — carte '{TcgId}' sans tcgplayer_product_id, ignorée", tcgId);
+                        "TcgPlayerProvider — carte '{TcgId}' sans tcgplayer product_id, ignorée", tcgId);
                     continue;
                 }
 
-                productIdToTcgId[card.TcgPlayerProductId.Value] = tcgId;
+                productIdToTcgId[productId] = tcgId;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogWarning(
                     ex, "TcgPlayerProvider — erreur résolution '{TcgId}'", tcgId);
@@ -128,10 +155,6 @@ internal sealed class TcgPlayerProvider : ICardPriceProvider
             results.Add(new CardPriceData(
                 Source:         Name,
                 RawMarketPrice: best.MarketPrice ?? best.MidPrice ?? best.LowPrice,
-                Psa7:           null,
-                Psa8:           null,
-                Psa9:           null,
-                Psa10:          null,
                 Currency:       "USD",
                 FetchedAt:      DateTime.UtcNow));
         }

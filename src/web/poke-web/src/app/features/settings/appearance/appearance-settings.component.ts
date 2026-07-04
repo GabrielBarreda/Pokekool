@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { ThemeService, ThemeMode, FontFamily } from '@core/services/theme.service';
+import { ThemeStore, ThemeUiMode } from '@core/theme/theme.store';
 import { CardComponent } from '@shared/ui/card/card.component';
 
 interface ThemeOption {
@@ -24,6 +25,18 @@ const FONT_OPTIONS: FontOption[] = [
   { value: 'Inter',     label: 'Inter',     preview: 'Aa' },
   { value: 'Roboto',    label: 'Roboto',    preview: 'Aa' },
   { value: 'System UI', label: 'System UI', preview: 'Aa' },
+];
+
+interface UiThemeOption {
+  value: ThemeUiMode;
+  label: string;
+  icon: string;
+  description: string;
+}
+
+const UI_THEME_OPTIONS: UiThemeOption[] = [
+  { value: 'default', label: 'Défaut',  icon: '🗂️', description: 'Interface standard de l\'application.' },
+  { value: 'pokemon', label: 'Pokémon', icon: '🃏', description: 'Classeur à pochettes, transitions dédiées (page Bourse).' },
 ];
 
 @Component({
@@ -60,6 +73,26 @@ const FONT_OPTIONS: FontOption[] = [
           >
             <span class="font-option__preview">{{ opt.preview }}</span>
             <span class="font-option__label">{{ opt.label }}</span>
+          </button>
+        }
+      </div>
+    </app-card>
+
+    <app-card title="Thème Pokémon" style="margin-top: var(--space-4)">
+      <p class="ui-theme-hint">
+        Habille la page Bourse en classeur à pochettes, avec ses propres transitions.
+      </p>
+      <div class="theme-grid">
+        @for (opt of uiThemeOptions; track opt.value) {
+          <button
+            class="theme-option"
+            [class.theme-option--active]="themeStore.themeMode() === opt.value"
+            (click)="setUiTheme(opt.value)"
+            type="button"
+            [title]="opt.description"
+          >
+            <span class="theme-option__icon">{{ opt.icon }}</span>
+            <span class="theme-option__label">{{ opt.label }}</span>
           </button>
         }
       </div>
@@ -139,12 +172,20 @@ const FONT_OPTIONS: FontOption[] = [
       color: var(--color-text-secondary);
       font-family: var(--font-family-sans);
     }
+
+    .ui-theme-hint {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-muted);
+      margin-bottom: var(--space-3);
+    }
   `],
 })
 export class AppearanceSettingsComponent {
   readonly themeService = inject(ThemeService);
+  readonly themeStore = inject(ThemeStore);
   readonly themeOptions = THEME_OPTIONS;
   readonly fontOptions  = FONT_OPTIONS;
+  readonly uiThemeOptions = UI_THEME_OPTIONS;
 
   setTheme(theme: ThemeMode): void {
     this.themeService.setTheme(theme);
@@ -152,5 +193,9 @@ export class AppearanceSettingsComponent {
 
   setFont(font: FontFamily): void {
     this.themeService.setFont(font);
+  }
+
+  setUiTheme(mode: ThemeUiMode): void {
+    this.themeStore.setMode(mode);
   }
 }

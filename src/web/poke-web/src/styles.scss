@@ -113,3 +113,19 @@ input, textarea, select, button {
   animation: 360ms cubic-bezier(0.0, 0, 0.2, 1) 60ms vt-zoom-in both;
 }
 
+// ============================================================
+// PREFERS-REDUCED-MOTION — garde-fou global pour le thème Pokémon.
+// Les composants dégradent déjà eux-mêmes leurs animations (classeur,
+// tourbillon carte↔pochette, toggle) via JS/CSS ; cette règle est un filet
+// de sécurité pour toute animation CSS restante liée à .theme-pokemon.
+// ============================================================
+@media (prefers-reduced-motion: reduce) {
+  body.theme-pokemon *,
+  body.theme-pokemon *::before,
+  body.theme-pokemon *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+

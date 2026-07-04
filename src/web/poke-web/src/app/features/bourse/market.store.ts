@@ -18,6 +18,9 @@ export interface SyncResult {
   cardsFailed: number;
   errors: string[] | null;
   completedAt: Date;
+  gradedByCompany?: Record<string, number> | null;
+  cardsWithoutAnyPrice?: number;
+  cardsWithKeyGradesMissing?: number;
 }
 
 export interface MarketState {
@@ -259,6 +262,9 @@ export const MarketStore = signalStore(
                   cardsFailed: res.cardsFailed,
                   errors: res.errors,
                   completedAt: new Date(),
+                  gradedByCompany: res.gradedByCompany,
+                  cardsWithoutAnyPrice: res.cardsWithoutAnyPrice,
+                  cardsWithKeyGradesMissing: res.cardsWithKeyGradesMissing,
                 };
                 patchState(store, { syncingPrices: false, lastSyncResult: result });
                 if (res.cardsFailed === 0) {

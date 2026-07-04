@@ -10,4 +10,6 @@ public sealed record GradeEntryDto(
     string   Label,
     decimal? MarketPrice,
     decimal? LowPrice,
-    int?     Population);
+    int?     Population,
+    string?  Source   = null,
+    string?  Currency = null);
