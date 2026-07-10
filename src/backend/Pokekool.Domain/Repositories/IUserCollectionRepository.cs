@@ -26,6 +26,11 @@ public interface IUserCollectionRepository
         CancellationToken ct = default);
 
     Task<CollectionStatsProjection> GetStatsAsync(Guid userId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Valeur estimée de la collection : somme du meilleur prix marché par carte possédée.
+    /// </summary>
+    Task<(decimal TotalValue, int CardCount)> GetCollectionValueAsync(Guid userId, CancellationToken ct = default);
 }
 
 public sealed record CollectionCardProjection(

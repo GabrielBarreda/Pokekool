@@ -4,6 +4,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using Pokekool.Application.Abstractions;
+using Pokekool.Application.Chat;
+using Pokekool.Application.Collection.Scanning;
+using Pokekool.Infrastructure.Chat;
+using Pokekool.Infrastructure.Chat.Tools;
+using Pokekool.Infrastructure.Collection.Scanning;
 using Pokekool.Infrastructure.DataProviders.CardMarket;
 using Pokekool.Infrastructure.DataProviders.CardMarketScraping;
 using Pokekool.Infrastructure.DataProviders.GemTracker;
@@ -81,6 +86,43 @@ public static class DependencyInjection
         services.AddScoped<IProviderSettingRepository, ProviderSettingRepository>();
         services.AddScoped<IUserCollectionRepository, UserCollectionRepository>();
         services.AddScoped<IDashboardRepository, DashboardRepository>();
+
+        // ---- Module Boutique ----
+        services.AddScoped<IShopRepository, ShopRepository>();
+        services.AddScoped<IShopProductRepository, ShopProductRepository>();
+        services.AddScoped<IShopStockRepository, ShopStockRepository>();
+        services.AddScoped<IShopAppointmentRepository, ShopAppointmentRepository>();
+
+        // ---- Module Client ----
+        services.AddScoped<IPurchaseRequestRepository, PurchaseRequestRepository>();
+        services.AddScoped<IShopClientRepository, ShopClientRepository>();
+
+        // ---- Module Stockage Physique ----
+        services.AddScoped<Pokekool.Domain.Repositories.Storage.IStorageRoomRepository,
+            Pokekool.Infrastructure.Persistence.Repositories.Storage.StorageRoomRepository>();
+        services.AddScoped<Pokekool.Domain.Repositories.Storage.IStorageBoxRepository,
+            Pokekool.Infrastructure.Persistence.Repositories.Storage.StorageBoxRepository>();
+        services.AddScoped<Pokekool.Domain.Repositories.Storage.IStorageBinderRepository,
+            Pokekool.Infrastructure.Persistence.Repositories.Storage.StorageBinderRepository>();
+        services.AddScoped<Pokekool.Domain.Repositories.Storage.IStorageLocationRepository,
+            Pokekool.Infrastructure.Persistence.Repositories.Storage.StorageLocationRepository>();
+        services.AddScoped<Pokekool.Domain.Repositories.Storage.IStorageMovementEventRepository,
+            Pokekool.Infrastructure.Persistence.Repositories.Storage.StorageMovementEventRepository>();
+        services.AddScoped<Pokekool.Domain.Repositories.Storage.IStorageModelCompileJobRepository,
+            Pokekool.Infrastructure.Persistence.Repositories.Storage.StorageModelCompileJobRepository>();
+
+        // Pipeline Blender (.blend → .glb)
+        services.Configure<Pokekool.Infrastructure.Options.BlenderOptions>(
+            config.GetSection(Pokekool.Infrastructure.Options.BlenderOptions.SectionName));
+        services.AddScoped<Pokekool.Application.Storage.IBlenderCompiler,
+            Pokekool.Infrastructure.Storage.BlenderCliCompiler>();
+        services.AddScoped<Pokekool.Application.Storage.IBlenderFileStore,
+            Pokekool.Infrastructure.Storage.BlenderFileStore>();
+        // File d'attente singleton, partagée entre le handler d'upload et le background service.
+        services.AddSingleton<Pokekool.Infrastructure.Storage.InMemoryCompileQueue>();
+        services.AddSingleton<Pokekool.Application.Storage.IStorageModelCompileQueue>(
+            sp => sp.GetRequiredService<Pokekool.Infrastructure.Storage.InMemoryCompileQueue>());
+        services.AddHostedService<BlenderCompileBackgroundService>();
 
         // ---- PokemonTCG HTTP client (bas niveau, utilisé par PokemonTcgProvider) ----
         services.Configure<PokemonTcgOptions>(config.GetSection(PokemonTcgOptions.SectionName));
@@ -171,12 +213,37 @@ public static class DependencyInjection
         services.AddScoped<ILlmExtractor, OllamaLlmExtractor>();
         services.AddScoped<ScrapingPipeline>();
 
+        // ---- Scan Collection (Vision LLM + Vault RAG) ----
+        services.Configure<OllamaVisionOptions>(config.GetSection(OllamaVisionOptions.SectionName));
+        services.AddSingleton<ICardVisionAnalyzer, OllamaCardVisionAnalyzer>();
+        services.AddSingleton<IVaultKnowledgeService, VaultKnowledgeService>();
+
         services.AddScoped<DbInitializer>();
 
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddSingleton<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddSingleton<IRefreshTokenStore, RedisRefreshTokenStore>();
         services.AddScoped<IPermissionResolver, RedisPermissionResolver>();
+
+        // ---- ChatBot IA (function calling via Ollama /api/chat) ----
+        services.Configure<OllamaChatOptions>(config.GetSection(OllamaChatOptions.SectionName));
+        services.AddScoped<IOllamaChatClient, OllamaChatClient>();
+        services.AddScoped<RedisChatSessionStore>();
+        services.AddScoped<IMarketPriceResearcher, EbayMarketPriceResearcher>();
+        services.AddScoped<IChatOrchestrator, ChatOrchestrator>();
+
+        // Outils de lecture (pas de confirmation requise)
+        services.AddScoped<IChatTool, SearchStockTool>();
+        services.AddScoped<IChatTool, SearchProductsTool>();
+        services.AddScoped<IChatTool, GetPlanningTool>();
+        services.AddScoped<IChatTool, GetMarketPriceTool>();
+        services.AddScoped<IChatTool, OpenCameraTool>();
+
+        // Outils d'action (human-in-the-loop)
+        services.AddScoped<IChatTool, CreateStockActionTool>();
+        services.AddScoped<IChatTool, CreateProductActionTool>();
+        services.AddScoped<IChatTool, UpdateAppointmentStatusActionTool>();
+        services.AddScoped<IChatTool, RescheduleAppointmentActionTool>();
 
         return services;
     }

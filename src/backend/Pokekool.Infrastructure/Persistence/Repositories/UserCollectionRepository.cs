@@ -135,4 +135,24 @@ internal sealed class UserCollectionRepository : IUserCollectionRepository
             userStats?.FavoriteCards ?? 0,
             userStats?.PriorityCards ?? 0);
     }
+
+    public async Task<(decimal TotalValue, int CardCount)> GetCollectionValueAsync(Guid userId, CancellationToken ct = default)
+    {
+        // Meilleur prix marché disponible par carte possédée (toutes sources confondues).
+        var perCard = await _db.UserCollections
+            .Where(uc => uc.UserId == userId && uc.IsOwned)
+            .GroupJoin(
+                _db.CardMarketPrices,
+                uc => uc.CardId,
+                p => p.CardId,
+                (uc, prices) => new
+                {
+                    uc.CardId,
+                    Best = prices.Max(x => (decimal?)x.MarketPrice) ?? 0m,
+                })
+            .ToListAsync(ct);
+
+        var total = perCard.Sum(x => x.Best);
+        return (total, perCard.Count);
+    }
 }

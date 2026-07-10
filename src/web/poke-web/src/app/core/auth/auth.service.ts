@@ -1,7 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { LoginRequest, LoginResponse } from './auth.models';
+import { LoginRequest, LoginResponse, RegisterRequest } from './auth.models';
 import { environment } from '@env/environment';
 
 @Injectable({ providedIn: 'root' })
@@ -11,6 +11,10 @@ export class AuthService {
 
   login(req: LoginRequest): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${this.base}/v1/auth/login`, req);
+  }
+
+  register(req: RegisterRequest): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(`${this.base}/v1/auth/register`, req);
   }
 
   refresh(refreshToken: string): Observable<LoginResponse> {

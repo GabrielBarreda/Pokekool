@@ -4,13 +4,14 @@ import { SidebarComponent } from '../sidebar/sidebar.component';
 import { TopbarComponent } from '../topbar/topbar.component';
 import { ToastContainerComponent } from '@shared/ui/toast/toast-container.component';
 import { SpinnerComponent } from '@shared/ui/spinner/spinner.component';
+import { ChatWidgetComponent } from '@shared/components/chat-widget/chat-widget.component';
 import { LoaderService } from '@core/services/loader.service';
 import { PermissionStore } from '@core/auth/permission.store';
 
 @Component({
   selector: 'app-admin-layout',
   standalone: true,
-  imports: [RouterOutlet, SidebarComponent, TopbarComponent, ToastContainerComponent, SpinnerComponent],
+  imports: [RouterOutlet, SidebarComponent, TopbarComponent, ToastContainerComponent, SpinnerComponent, ChatWidgetComponent],
   template: `
     <!-- Global loading bar -->
     @if (loader.isLoading()) {
@@ -35,6 +36,9 @@ import { PermissionStore } from '@core/auth/permission.store';
 
     <!-- Toast notifications -->
     <app-toast-container />
+
+    <!-- Assistant IA (flottant, layout admin uniquement) -->
+    <app-chat-widget />
   `,
   styles: [`
     /* Global loading bar */

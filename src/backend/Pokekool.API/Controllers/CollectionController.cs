@@ -1,11 +1,14 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Pokekool.Application.Collection.Commands.BulkAddToCollection;
+using Pokekool.Application.Collection.Commands.ScanCollection;
 using Pokekool.Application.Collection.Commands.SetCardFavorite;
 using Pokekool.Application.Collection.Commands.SetCardPriority;
 using Pokekool.Application.Collection.Commands.ToggleCardOwned;
 using Pokekool.Application.Collection.Queries.GetCollectionCards;
 using Pokekool.Application.Collection.Queries.GetCollectionStats;
+using Pokekool.Application.Collection.Queries.GetCollectionValue;
 using Pokekool.Shared.Dtos.Collection;
 using Pokekool.Shared.Dtos.Common;
 using Swashbuckle.AspNetCore.Annotations;
@@ -43,6 +46,12 @@ public sealed class CollectionController : BaseApiController
     public async Task<ActionResult<CollectionStatsDto>> GetStats(CancellationToken ct)
         => Ok(await _mediator.Send(new GetCollectionStatsQuery(), ct));
 
+    [HttpGet("value")]
+    [ProducesResponseType(typeof(CollectionValueDto), StatusCodes.Status200OK)]
+    [SwaggerOperation(Summary = "Get estimated total value of the current user's owned cards")]
+    public async Task<ActionResult<CollectionValueDto>> GetValue(CancellationToken ct)
+        => Ok(await _mediator.Send(new GetCollectionValueQuery(), ct));
+
     [HttpPost("cards/{cardId:guid}/toggle-owned")]
     [ProducesResponseType(typeof(CollectionCardStatusDto), StatusCodes.Status200OK)]
     [SwaggerOperation(Summary = "Toggle owned status of a card")]
@@ -66,7 +75,41 @@ public sealed class CollectionController : BaseApiController
         [FromBody] SetPriorityRequest body,
         CancellationToken ct)
         => Ok(await _mediator.Send(new SetCardPriorityCommand(cardId, body.IsPriority), ct));
+
+    [HttpPost("scan")]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(ScanCollectionResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [SwaggerOperation(Summary = "Scan a photo and detect Pokémon cards via Vision LLM")]
+    public async Task<ActionResult<ScanCollectionResult>> ScanImage(
+        IFormFile image,
+        CancellationToken ct)
+    {
+        if (image is null || image.Length == 0)
+            return BadRequest("Image requise.");
+        if (image.Length > 10 * 1024 * 1024)
+            return BadRequest("Image trop grande (max 10 Mo).");
+
+        using var ms = new MemoryStream();
+        await image.CopyToAsync(ms, ct);
+        var base64 = Convert.ToBase64String(ms.ToArray());
+
+        return Ok(await _mediator.Send(new ScanCollectionCommand(base64), ct));
+    }
+
+    [HttpPost("bulk-own")]
+    [ProducesResponseType(typeof(BulkAddResult), StatusCodes.Status200OK)]
+    [SwaggerOperation(Summary = "Add multiple scanned cards to the current user's collection")]
+    public async Task<ActionResult<BulkAddResult>> BulkAddOwned(
+        [FromBody] BulkAddOwnedRequest body,
+        CancellationToken ct)
+        => Ok(await _mediator.Send(
+            new BulkAddToCollectionCommand(body.CardIds, body.Matches), ct));
 }
 
 public sealed record SetFavoriteRequest(bool IsFavorite);
 public sealed record SetPriorityRequest(bool IsPriority);
+
+public sealed record BulkAddOwnedRequest(
+    IReadOnlyList<Guid> CardIds,
+    IReadOnlyList<CardScanMatchDto> Matches);

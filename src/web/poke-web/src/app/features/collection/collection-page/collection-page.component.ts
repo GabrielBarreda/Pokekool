@@ -4,18 +4,26 @@ import {
   OnInit,
   OnDestroy,
   HostListener,
+  ViewChild,
   inject,
+  signal,
+  computed,
 } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { CollectionStore } from '../collection.store';
 import { CollectionCardComponent } from '../collection-card/collection-card.component';
 import { CollectionFiltersComponent } from '../collection-filters/collection-filters.component';
+import { CollectionScanComponent } from '../collection-scan/collection-scan.component';
 import { CollectionCardDto, SetOption } from '../collection.models';
-// CollectionFilters used via store.updateFilters(partial)
+import { CARD_CONDITIONS, conditionLabel } from '@shared/constants/card-condition.labels';
 import { PageHeaderComponent } from '@shared/ui/page-header/page-header.component';
 import { SpinnerComponent } from '@shared/ui/spinner/spinner.component';
 import { EmptyStateComponent } from '@shared/ui/empty-state/empty-state.component';
+import { ToastService } from '@shared/services/toast.service';
 import { HttpClient } from '@angular/common/http';
 import { map } from 'rxjs';
+import { ThemeStore } from '@core/theme/theme.store';
+import { PokemonBinderComponent, BinderItem } from '@shared/ui/pokemon-binder/pokemon-binder.component';
 
 @Component({
   selector: 'app-collection-page',
@@ -27,6 +35,9 @@ import { map } from 'rxjs';
     PageHeaderComponent,
     SpinnerComponent,
     EmptyStateComponent,
+    FormsModule,
+    PokemonBinderComponent,
+    CollectionScanComponent,
   ],
   styles: [`
     :host { display: block; }
@@ -124,6 +135,58 @@ import { map } from 'rxjs';
       font-size: var(--font-size-sm);
       color: var(--color-text-muted);
     }
+
+    /* Modale inline (stock boutique) */
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 2000;
+      background: rgba(0,0,0,0.45);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .modal-box {
+      background: var(--color-surface-raised);
+      border: 1px solid var(--color-border-default);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-xl);
+      padding: var(--space-5);
+      min-width: 320px;
+      max-width: 400px;
+      width: 100%;
+      display: flex; flex-direction: column; gap: var(--space-4);
+    }
+    .modal-title { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); margin: 0; }
+    .modal-sub   { font-size: var(--font-size-sm); color: var(--color-text-muted); margin: 0; }
+    .modal-field { display: flex; flex-direction: column; gap: var(--space-1); }
+    .modal-field label { font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); }
+    .modal-field select,
+    .modal-field input  { height: 36px; padding: 0 var(--space-3); border: 1px solid var(--color-border-default); border-radius: var(--radius-md); background: var(--color-surface-base); color: var(--color-text-primary); font-size: var(--font-size-sm); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+    .modal-actions button { padding: var(--space-2) var(--space-4); border-radius: var(--radius-md); font-size: var(--font-size-sm); cursor: pointer; border: 1px solid var(--color-border-default); background: var(--color-surface-base); }
+    .modal-actions button.primary { background: var(--color-brand-primary); color: #fff; border-color: var(--color-brand-primary); }
+    .modal-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Barre d'actions + scan */
+    .toolbar { display: flex; justify-content: flex-end; margin: var(--space-2) 0; }
+    .btn-scan {
+      display: inline-flex; align-items: center; gap: var(--space-1);
+      height: 38px; padding: 0 var(--space-4);
+      border: 1px solid var(--color-border-default); border-radius: var(--radius-md);
+      background: var(--color-surface-raised); color: var(--color-text-primary);
+      cursor: pointer; font-size: var(--font-size-sm);
+    }
+    .scan-overlay {
+      position: fixed; inset: 0; z-index: 2000;
+      background: rgba(0,0,0,0.55);
+      display: flex; align-items: flex-start; justify-content: center;
+      overflow-y: auto; padding: var(--space-5);
+    }
+    .scan-modal {
+      background: var(--color-surface-raised);
+      border: 1px solid var(--color-border-default);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-xl);
+      padding: var(--space-5);
+      width: 100%; max-width: 860px;
+    }
   `],
   template: `
     <div class="page" (click)="onPageClick()">
@@ -131,6 +194,12 @@ import { map } from 'rxjs';
         title="Ma Collection"
         [subtitle]="store.statsLabel()"
       />
+
+      <div class="toolbar">
+        <button class="btn-scan" (click)="openScan(); $event.stopPropagation()">
+          📷 Scanner
+        </button>
+      </div>
 
       <app-collection-filters
         [filters]="store.filters()"
@@ -145,16 +214,25 @@ import { map } from 'rxjs';
           <app-spinner />
         </div>
       } @else if (store.hasCards()) {
-        <div class="card-grid">
-          @for (card of store.cards(); track card.id) {
-            <app-collection-card
-              [card]="card"
-              [isToggling]="store.toggling().has(card.id)"
-              (cardClick)="store.toggleOwned(card.id)"
-              (contextMenu)="onContextMenu($event, card)"
-            />
-          }
-        </div>
+        @if (themeStore.isPokemon()) {
+          <app-pokemon-binder
+            #binder
+            [items]="binderItems()"
+            (itemClick)="onBinderItemClick($event)"
+            (itemContextMenu)="onBinderContextMenu($event)"
+          />
+        } @else {
+          <div class="card-grid">
+            @for (card of store.cards(); track card.id) {
+              <app-collection-card
+                [card]="card"
+                [isToggling]="store.toggling().has(card.id)"
+                (cardClick)="store.toggleOwned(card.id)"
+                (contextMenu)="onContextMenu($event, card)"
+              />
+            }
+          </div>
+        }
 
         <!-- Pagination -->
         @if (store.totalPages() > 1) {
@@ -202,6 +280,13 @@ import { map } from 'rxjs';
         [style.top.px]="ctx.y"
         (click)="$event.stopPropagation()"
       >
+        @if (themeStore.isPokemon()) {
+          <button class="context-menu__item" (click)="onVisualizeAction(ctx.card)">
+            👁 Visualiser
+          </button>
+          <div class="context-menu__divider"></div>
+        }
+
         <button class="context-menu__item" (click)="onFavoriteAction(ctx.card)">
           {{ ctx.card.isFavorite ? '★ Retirer des favoris' : '☆ Ajouter aux favoris' }}
         </button>
@@ -217,13 +302,95 @@ import { map } from 'rxjs';
         <button class="context-menu__item disabled">
           + Créer un deck · Bientôt disponible
         </button>
+
+        @if (ctx.card.isOwned) {
+          <div class="context-menu__divider"></div>
+          <button class="context-menu__item" (click)="openStockModal(ctx.card)">
+            📦 Ajouter au stock boutique
+          </button>
+        }
+      </div>
+    }
+
+    <!-- Modale : ajouter au stock boutique -->
+    @if (stockModal(); as card) {
+      <div class="modal-backdrop" (click)="stockModal.set(null)">
+        <div class="modal-box" (click)="$event.stopPropagation()">
+          <p class="modal-title">Ajouter au stock boutique</p>
+          <p class="modal-sub">{{ card.name }} · {{ card.setName }}</p>
+
+          <div class="modal-field">
+            <label>État</label>
+            <select [(ngModel)]="stockCondition">
+              @for (c of conditions; track c.code) { <option [value]="c.code">{{ c.label }}</option> }
+            </select>
+          </div>
+
+          <div class="modal-field">
+            <label>Quantité</label>
+            <input type="number" min="1" [(ngModel)]="stockQty" />
+          </div>
+
+          <div class="modal-field">
+            <label>Prix d'achat (optionnel)</label>
+            <input type="number" min="0" step="0.01" placeholder="—" [(ngModel)]="stockPrice" />
+          </div>
+
+          <div class="modal-actions">
+            <button (click)="stockModal.set(null)">Annuler</button>
+            <button class="primary" [disabled]="stockSaving()" (click)="confirmAddToStock(card)">
+              {{ stockSaving() ? '…' : 'Ajouter' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Overlay : scan par photo -->
+    @if (scanOpen()) {
+      <div class="scan-overlay" (click)="scanOpen.set(false)">
+        <div class="scan-modal" (click)="$event.stopPropagation()">
+          <app-collection-scan
+            (closed)="scanOpen.set(false)"
+            (added)="onScanAdded($event)"
+          />
+        </div>
       </div>
     }
   `,
 })
 export class CollectionPageComponent implements OnInit, OnDestroy {
   readonly store = inject(CollectionStore);
+  readonly themeStore = inject(ThemeStore);
   private readonly http = inject(HttpClient);
+  private readonly toast = inject(ToastService);
+
+  // ── Thème Pokémon — classeur ───────────────────────────────────
+  @ViewChild('binder') binderRef?: PokemonBinderComponent;
+
+  readonly binderItems = computed<BinderItem[]>(() =>
+    this.store.cards().map(card => ({
+      id: card.id,
+      imageUrl: card.imageSmall,
+      imageLargeUrl: card.imageLarge ?? card.imageSmall,
+      name: card.name,
+      owned: card.isOwned,
+      favorite: card.isFavorite,
+      priority: card.isPriority && !card.isOwned,
+    }))
+  );
+
+  // ── Stock boutique modal ──────────────────────────────────────
+  readonly stockModal  = signal<CollectionCardDto | null>(null);
+  readonly stockSaving = signal(false);
+  stockCondition = 'NM';
+  readonly conditions = CARD_CONDITIONS;
+  readonly conditionLabel = conditionLabel;
+  stockQty       = 1;
+  stockPrice: number | null = null;
+
+  // ── Scan par photo ────────────────────────────────────────────
+  readonly scanOpen = signal(false);
 
   availableSets: SetOption[] = [];
 
@@ -269,6 +436,22 @@ export class CollectionPageComponent implements OnInit, OnDestroy {
     this.store.openContextMenu({ card, x, y });
   }
 
+  // ── Thème Pokémon — classeur ───────────────────────────────────
+  onBinderItemClick(item: BinderItem): void {
+    this.store.toggleOwned(item.id);
+  }
+
+  onBinderContextMenu({ item, event }: { item: BinderItem; event: MouseEvent }): void {
+    const card = this.store.cards().find(c => c.id === item.id);
+    if (!card) return;
+    this.onContextMenu(event, card);
+  }
+
+  onVisualizeAction(card: CollectionCardDto): void {
+    this.store.closeContextMenu();
+    this.binderRef?.viewItem(card.id);
+  }
+
   onFavoriteAction(card: CollectionCardDto): void {
     this.store.setFavorite(card.id, !card.isFavorite);
   }
@@ -294,5 +477,60 @@ export class CollectionPageComponent implements OnInit, OnDestroy {
     if (current < total - 2) pages.push(-1);
     pages.push(total);
     return pages;
+  }
+
+  // ── Scan par photo ────────────────────────────────────────────
+  openScan(): void {
+    this.store.closeContextMenu();
+    this.scanOpen.set(true);
+  }
+
+  onScanAdded(count: number): void {
+    if (count > 0) {
+      this.store.loadCards();
+      this.store.loadStats();
+    }
+    this.scanOpen.set(false);
+  }
+
+  // ── Stock boutique ────────────────────────────────────────────
+  openStockModal(card: CollectionCardDto): void {
+    this.stockCondition = 'NM';
+    this.stockQty       = 1;
+    this.stockPrice     = null;
+    this.store.closeContextMenu();
+    this.stockModal.set(card);
+  }
+
+  confirmAddToStock(card: CollectionCardDto): void {
+    if (this.stockSaving()) return;
+    this.stockSaving.set(true);
+
+    const body = {
+      cardId:            card.id,
+      productName:       card.name,
+      type:              'CardRaw',
+      condition:         this.stockCondition,
+      gradingCompany:    null,
+      gradeValue:        null,
+      quantityTotal:     this.stockQty,
+      quantityAvailable: this.stockQty,
+      quantityReserved:  0,
+      purchasePrice:     this.stockPrice ?? null,
+      purchaseCurrency:  this.stockPrice != null ? 'EUR' : null,
+      notes:             null,
+    };
+
+    this.http.post('/api/v1/admin/shop/stock', body).subscribe({
+      next: () => {
+        this.stockSaving.set(false);
+        this.stockModal.set(null);
+        this.toast.show({ message: `${card.name} ajouté au stock boutique.`, type: 'success' });
+      },
+      error: () => {
+        this.stockSaving.set(false);
+        this.toast.show({ message: 'Échec de l\'ajout au stock.', type: 'danger' });
+      },
+    });
   }
 }

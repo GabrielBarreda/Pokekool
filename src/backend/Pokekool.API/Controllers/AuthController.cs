@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Pokekool.Application.Auth.Commands.Login;
 using Pokekool.Application.Auth.Commands.Logout;
 using Pokekool.Application.Auth.Commands.Refresh;
+using Pokekool.Application.Auth.Commands.Register;
 using Pokekool.Shared.Dtos.Auth;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -28,6 +29,21 @@ public sealed class AuthController : BaseApiController
     {
         var response = await _mediator.Send(
             new LoginCommand(request.Email, request.Password),
+            ct);
+        return Ok(response);
+    }
+
+    [HttpPost("register")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [SwaggerOperation(Summary = "Register", Description = "Creates a client account and logs the user in.")]
+    public async Task<ActionResult<LoginResponse>> Register(
+        [FromBody] RegisterRequest request,
+        CancellationToken ct)
+    {
+        var response = await _mediator.Send(
+            new RegisterCommand(request.Email, request.Password, request.FirstName, request.LastName),
             ct);
         return Ok(response);
     }

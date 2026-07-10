@@ -4,6 +4,7 @@ export interface NavItem {
   icon: string;
   permission?: string; // si absent = accessible à tous les authentifiés
   adminOnly?: boolean;
+  children?: NavItem[]; // sous-menu (ex: Boutique)
 }
 
 // Items visibles par tous les utilisateurs connectés
@@ -13,6 +14,20 @@ export const MAIN_NAV_ITEMS: NavItem[] = [
   { label: 'Collection',      route: '/collection', icon: '📦' },
   { label: 'Messages',        route: '/messages',   icon: '💬' },
   { label: 'Mon profil',      route: '/profil',     icon: '👤' },
+];
+
+// Items section Boutique (entre main et admin)
+export const BOUTIQUE_NAV_ITEMS: NavItem[] = [
+  {
+    label: 'Boutique', route: '/boutique', icon: '', permission: 'shop:read',
+    children: [
+      { label: 'Infos',      route: '/boutique/infos',      icon: '🏪', adminOnly: true, permission: 'shop:manage' },
+      { label: 'Présentoir', route: '/boutique/presentoir', icon: '🃏', permission: 'shop:read' },
+      { label: 'Stock',      route: '/boutique/stock',      icon: '📦', permission: 'shop:read' },
+      { label: 'Planning',   route: '/boutique/planning',   icon: '📅', permission: 'shop:read' },
+      { label: 'Stockage',   route: '/boutique/stockage',   icon: '🏬', permission: 'storage:read' },
+    ],
+  },
 ];
 
 // Items visibles uniquement par les admins

@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from '@core/guards/auth.guard';
+import { clientGuard } from '@core/guards/client.guard';
 
 export const routes: Routes = [
   // ── Public routes ─────────────────────────────────────────
@@ -8,6 +9,36 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/auth/login/login.component').then(m => m.LoginComponent),
     title: 'Connexion — Pokekool',
+  },
+
+  // Auth (public) — login + inscription client
+  {
+    path: 'auth',
+    children: [
+      {
+        path: 'login',
+        loadComponent: () =>
+          import('./features/auth/login/login.component').then(m => m.LoginComponent),
+        title: 'Connexion — Pokekool',
+      },
+      {
+        path: 'register',
+        loadComponent: () =>
+          import('./features/auth/register/register.component').then(m => m.RegisterComponent),
+        title: 'Créer un compte — Pokekool',
+      },
+      { path: '', redirectTo: 'login', pathMatch: 'full' },
+    ],
+  },
+
+  // ── Espace client (auth requise, rôle client/admin) ────────
+  {
+    path: 'client',
+    loadComponent: () =>
+      import('./features/client/layout/client-layout.component').then(m => m.ClientLayoutComponent),
+    canActivate: [clientGuard],
+    loadChildren: () =>
+      import('./features/client/client.routes').then(m => m.CLIENT_ROUTES),
   },
 
   // ── Protected shell ───────────────────────────────────────
@@ -72,6 +103,13 @@ export const routes: Routes = [
         loadChildren: () =>
           import('./features/roles/roles.routes').then(m => m.ROLE_ROUTES),
         title: 'Rôles — Pokekool',
+      },
+
+      // Boutique (admin / employee)
+      {
+        path: 'boutique',
+        loadChildren: () =>
+          import('./features/boutique/boutique.routes').then(m => m.BOUTIQUE_ROUTES),
       },
 
       // Paramètres (admin)

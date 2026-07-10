@@ -125,13 +125,13 @@ import { ThemeStore } from '@core/theme/theme.store';
         <!-- Summary chips -->
         <div class="summary-row">
           <div class="summary-chip">
-            <span class="summary-chip__label">Gem Mint (10)</span>
+            <span class="summary-chip__label">Gemme (10)</span>
             <span class="summary-chip__value">
               {{ topEntry()?.marketPrice | currency:'USD':'symbol':'1.0-0' }}
             </span>
           </div>
           <div class="summary-chip">
-            <span class="summary-chip__label">Mint (9)</span>
+            <span class="summary-chip__label">Neuf (9)</span>
             <span class="summary-chip__value">
               {{ gradePrice(data, 9) | currency:'USD':'symbol':'1.0-0' }}
             </span>

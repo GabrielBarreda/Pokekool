@@ -13,12 +13,15 @@ namespace Pokekool.Infrastructure.Persistence;
 ///   - catalogue des permissions
 ///   - rôles système avec leurs permissions par défaut
 ///   - utilisateur admin de développement
+///   - utilisateur client de développement (Development/Local uniquement)
 /// Idempotent (relance OK).
 /// </summary>
 public sealed class DbInitializer
 {
     private const string DevAdminEmail    = "admin@pokekool.dev";
     private const string DevAdminPassword = "DevAdmin#2026";
+    private const string DevClientEmail   = "client@pokekool.dev";
+    private const string DevClientPassword = "DevClient#2026";
 
     private readonly PokekoolDbContext _db;
     private readonly IPasswordHasher _hasher;
@@ -39,6 +42,7 @@ public sealed class DbInitializer
         await SeedPermissionsCatalogAsync(ct);
         var systemRoles = await SeedSystemRolesAsync(ct);
         await SeedDevAdminUserAsync(systemRoles, ct);
+        await SeedDevClientUserAsync(systemRoles, ct);
     }
 
     // ============================================================
@@ -87,6 +91,11 @@ public sealed class DbInitializer
         Permissions.RolesDelete        => "Supprimer un rôle personnalisé",
         Permissions.CardsRead          => "Parcourir le catalogue de cartes et sets Pokémon",
         Permissions.CardsSync          => "Lancer une mise à jour du catalogue depuis la source officielle",
+        Permissions.ShopRead           => "Consulter le présentoir, le stock et le planning des rendez-vous",
+        Permissions.ShopWrite          => "Gérer les articles, le stock et les rendez-vous de la boutique",
+        Permissions.ShopManage         => "Modifier les informations de la boutique (adresse, horaires, services)",
+        Permissions.StorageRead        => "Consulter les salles, cartons, classeurs et la vue 3D du stockage physique",
+        Permissions.StorageWrite       => "Gérer les salles, cartons, classeurs, localisations et modèles 3D du stockage",
         _ => code,
     };
 
@@ -205,5 +214,39 @@ public sealed class DbInitializer
         _logger.LogInformation(
             "Dev admin user seeded. Email: {Email} | Password: {Password}",
             DevAdminEmail, DevAdminPassword);
+    }
+
+    // ============================================================
+    // DEV CLIENT USER
+    // ============================================================
+    private async Task SeedDevClientUserAsync(Dictionary<string, Role> systemRoles, CancellationToken ct)
+    {
+        var email  = Email.Create(DevClientEmail);
+        var exists = await _db.Users.IgnoreQueryFilters()
+            .AnyAsync(u => u.Email == email, ct);
+
+        if (exists)
+        {
+            _logger.LogDebug("Dev client user '{Email}' already exists, skipping seed.", DevClientEmail);
+            return;
+        }
+
+        if (!systemRoles.TryGetValue(SystemRoles.Client, out var clientRole))
+            throw new InvalidOperationException("System role 'client' is missing — seed inconsistent.");
+
+        var user = User.Create(
+            email:        email,
+            passwordHash: _hasher.Hash(DevClientPassword),
+            firstName:    "Dev",
+            lastName:     "Client");
+
+        user.AssignRole(clientRole.Id);
+
+        await _db.Users.AddAsync(user, ct);
+        await _db.SaveChangesAsync(ct);
+
+        _logger.LogInformation(
+            "Dev client user seeded. Email: {Email} | Password: {Password}",
+            DevClientEmail, DevClientPassword);
     }
 }

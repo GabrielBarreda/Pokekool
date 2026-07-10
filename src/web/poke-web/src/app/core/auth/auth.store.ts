@@ -6,7 +6,7 @@ import { computed } from '@angular/core';
 import { tapResponse } from '@ngrx/operators';
 import { pipe, switchMap, tap } from 'rxjs';
 import { AuthService } from './auth.service';
-import { AuthState, LoginRequest } from './auth.models';
+import { AuthState, LoginRequest, RegisterRequest } from './auth.models';
 
 // ── Storage keys ──────────────────────────────────────────────
 const STORAGE_KEY = 'pokekool_auth';
@@ -88,12 +88,46 @@ export const AuthStore = signalStore(
                 };
                 patchState(store, next);
                 saveToStorage({ ...store, ...next } as AuthState);
-                router.navigate(['/dashboard']);
+                const roles = res.user?.roles ?? [];
+                router.navigate([roles.includes('admin') ? '/dashboard' : '/client/collection']);
               },
               error: (err: { error?: { title?: string } }) => {
                 patchState(store, {
                   isLoading: false,
                   error: err?.error?.title ?? 'Identifiants incorrects',
+                });
+              },
+            }),
+          ),
+        ),
+      ),
+    ),
+
+    // ── Register (compte client) ─────────────────────────────
+    register: rxMethod<RegisterRequest>(
+      pipe(
+        tap(() => patchState(store, { isLoading: true, error: null })),
+        switchMap(req =>
+          authService.register(req).pipe(
+            tapResponse({
+              next: res => {
+                const next: Partial<AuthState> = {
+                  user: res.user,
+                  accessToken: res.accessToken,
+                  refreshToken: res.refreshToken,
+                  accessTokenExpiresAt: res.accessTokenExpiresAt,
+                  isAuthenticated: true,
+                  isLoading: false,
+                  error: null,
+                };
+                patchState(store, next);
+                saveToStorage({ ...store, ...next } as AuthState);
+                router.navigate(['/client/collection']);
+              },
+              error: (err: { error?: { title?: string; detail?: string } }) => {
+                patchState(store, {
+                  isLoading: false,
+                  error: err?.error?.detail ?? err?.error?.title ?? 'Inscription impossible',
                 });
               },
             }),

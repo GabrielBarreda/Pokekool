@@ -3,7 +3,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import { NgFor, NgIf, NgClass } from '@angular/common';
 import { AuthStore } from '@core/auth/auth.store';
 import { PermissionStore } from '@core/auth/permission.store';
-import { MAIN_NAV_ITEMS, ADMIN_ONLY_NAV_ITEMS, NavItem } from '../nav-item.model';
+import { MAIN_NAV_ITEMS, BOUTIQUE_NAV_ITEMS, ADMIN_ONLY_NAV_ITEMS, NavItem } from '../nav-item.model';
 
 @Component({
   selector: 'app-sidebar',
@@ -27,11 +27,32 @@ import { MAIN_NAV_ITEMS, ADMIN_ONLY_NAV_ITEMS, NavItem } from '../nav-item.model
             class="sidebar__link"
             [attr.title]="collapsed ? item.label : null"
           >
-            <span class="sidebar__icon" aria-hidden="true">{{ item.icon }}</span>
+            <span *ngIf="item.icon" class="sidebar__icon" aria-hidden="true">{{ item.icon }}</span>
             <span *ngIf="!collapsed" class="sidebar__label">{{ item.label }}</span>
           </a>
         </li>
       </ul>
+
+      <!-- Séparateur + Nav Boutique -->
+      <ng-container *ngIf="boutiqueItems().length > 0">
+        <div class="sidebar__divider" role="separator"></div>
+        <span *ngIf="!collapsed" class="sidebar__section-label">Boutique</span>
+        <ul class="sidebar__nav" role="list">
+          <ng-container *ngFor="let item of boutiqueItems()">
+            <li *ngFor="let child of visibleChildren(item)" class="sidebar__nav-item">
+              <a
+                [routerLink]="child.route"
+                routerLinkActive="sidebar__link--active"
+                class="sidebar__link"
+                [attr.title]="collapsed ? child.label : null"
+              >
+                <span *ngIf="child.icon" class="sidebar__icon" aria-hidden="true">{{ child.icon }}</span>
+                <span *ngIf="!collapsed" class="sidebar__label">{{ child.label }}</span>
+              </a>
+            </li>
+          </ng-container>
+        </ul>
+      </ng-container>
 
       <!-- Séparateur + Nav admin -->
       <ng-container *ngIf="adminItems().length > 0">
@@ -45,7 +66,7 @@ import { MAIN_NAV_ITEMS, ADMIN_ONLY_NAV_ITEMS, NavItem } from '../nav-item.model
               class="sidebar__link"
               [attr.title]="collapsed ? item.label : null"
             >
-              <span class="sidebar__icon" aria-hidden="true">{{ item.icon }}</span>
+              <span *ngIf="item.icon" class="sidebar__icon" aria-hidden="true">{{ item.icon }}</span>
               <span *ngIf="!collapsed" class="sidebar__label">{{ item.label }}</span>
             </a>
           </li>
@@ -125,6 +146,10 @@ import { MAIN_NAV_ITEMS, ADMIN_ONLY_NAV_ITEMS, NavItem } from '../nav-item.model
     .sidebar__icon { font-size: var(--font-size-md); flex-shrink: 0; }
     .sidebar__label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
 
+    /* Sous-menu */
+    .sidebar__subnav { list-style: none; margin: 2px 0 2px; padding: 0; }
+    .sidebar__link--child { font-size: var(--font-size-xs); padding: var(--space-1) var(--space-3); }
+
     /* Divider & section label */
     .sidebar__divider {
       height: 1px;
@@ -137,7 +162,6 @@ import { MAIN_NAV_ITEMS, ADMIN_ONLY_NAV_ITEMS, NavItem } from '../nav-item.model
       font-weight: var(--font-weight-semibold);
       color: var(--color-text-muted);
       text-transform: uppercase;
-      letter-spacing: var(--letter-spacing-wide);
       padding: 0 var(--space-5) var(--space-1);
     }
   `],
@@ -161,11 +185,36 @@ export class SidebarComponent {
     );
   });
 
-  readonly adminItems = computed(() => {
-    if (!this.isAdmin()) return [];
-    if (!this.permsLoaded()) return ADMIN_ONLY_NAV_ITEMS;
-    return ADMIN_ONLY_NAV_ITEMS.filter(item =>
-      !item.permission || this.permStore.permissions().includes(item.permission)
+  readonly boutiqueItems = computed(() => {
+    const perms = this.permStore.permissions();
+    const canSeeSection = BOUTIQUE_NAV_ITEMS.some(i => i.permission && perms.includes(i.permission));
+    if (!canSeeSection) return [];
+    if (!this.permsLoaded()) return [];
+    return BOUTIQUE_NAV_ITEMS.filter(item =>
+      !item.permission || perms.includes(item.permission)
     );
   });
+
+  readonly adminItems = computed(() => {
+    const perms = this.permStore.permissions();
+    // Section admin visible pour les admins
+    const canSeeSection = this.isAdmin()
+      || ADMIN_ONLY_NAV_ITEMS.some(i => i.permission && perms.includes(i.permission));
+    if (!canSeeSection) return [];
+    if (!this.permsLoaded()) return this.isAdmin() ? ADMIN_ONLY_NAV_ITEMS : [];
+    return ADMIN_ONLY_NAV_ITEMS.filter(item => {
+      if (item.adminOnly && !this.isAdmin()) return false;
+      return !item.permission || perms.includes(item.permission);
+    });
+  });
+
+  /** Enfants d'un item filtrés selon rôle admin + permissions. */
+  visibleChildren(item: NavItem): NavItem[] {
+    if (!item.children) return [];
+    const perms = this.permStore.permissions();
+    return item.children.filter(c => {
+      if (c.adminOnly && !this.isAdmin()) return false;
+      return !c.permission || perms.includes(c.permission);
+    });
+  }
 }

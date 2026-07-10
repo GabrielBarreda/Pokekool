@@ -1,0 +1,25 @@
+# Contexte de build API = racine du repo. On exclut tout ce qui est lourd/inutile
+# pour garder le contexte petit et éviter d'invalider le cache.
+
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+.git/
+.github/
+.vs/
+.vscode/
+.idea/
+
+# Front (build dans sa propre image, pas besoin ici)
+src/web/**/node_modules/
+src/web/**/dist/
+
+# Fichiers de travail Blender générés localement
+src/backend/**/App_Data/
+src/backend/**/wwwroot/models/
+
+# Divers
+**/*.user
+**/*.log
+docker/postgres/data/

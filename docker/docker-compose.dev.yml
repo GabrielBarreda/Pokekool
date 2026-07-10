@@ -1,0 +1,132 @@
+name: pokekool-dev
+
+# Stack de développement local — infra + API avec hot-reload.
+# Le front Angular tourne séparément avec "ng serve" (HMR natif Angular).
+#
+# Premier démarrage :
+#   docker compose -f docker/docker-compose.dev.yml up -d
+#   ng serve   (dans src/web/poke-web)
+#
+# Après le premier démarrage Ollama (une seule fois) :
+#   docker exec -it pokekool-ollama ollama pull qwen2.5:7b
+#   docker exec -it pokekool-ollama ollama pull llava:7b
+#
+# Ports :
+#   API   : http://localhost:5080
+#   PG    : localhost:5434
+#   Redis : localhost:6382
+#   Ollama: localhost:11434
+#   Admin : http://localhost:8091
+
+services:
+
+  # ── Infrastructure ────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: pokekool-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pokekool
+      POSTGRES_USER: pokekool
+      POSTGRES_PASSWORD: pokekool_dev_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pokekool -d pokekool"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: pokekool-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "6382:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: pokekool-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+
+  adminer:
+    image: adminer:4
+    container_name: pokekool-adminer
+    restart: unless-stopped
+    ports:
+      - "8091:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: dracula
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── API .NET (dotnet watch = hot-reload) ──────────────────────────────────
+
+  api:
+    build:
+      context: ../src/backend
+      dockerfile: Dockerfile.dev
+    container_name: pokekool-api
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "8080"
+      # Surcharge appsettings.json — noms de host = noms des services Docker
+      Database__ConnectionString: "Host=postgres;Port=5432;Database=pokekool;Username=pokekool;Password=pokekool_dev_password"
+      Redis__ConnectionString: "redis:6379"
+      Ollama__BaseUrl: "http://ollama:11434"
+      OllamaVision__BaseUrl: "http://ollama:11434"
+      OllamaChat__BaseUrl: "http://ollama:11434"
+      # CORS : Angular dev server tourne sur l'hôte, pas dans Docker
+      Cors__AllowedOrigins__0: "http://localhost:4200"
+      Cors__AllowedOrigins__1: "https://localhost:4200"
+    ports:
+      - "5080:8080"
+    volumes:
+      # Source code monté → dotnet watch détecte les changements
+      - ../src/backend:/src
+      # Cache NuGet (évite de re-télécharger les packages à chaque build)
+      - nuget-cache:/root/.nuget
+      # Cache Playwright/Chromium (téléchargé une seule fois)
+      - playwright-cache:/root/.cache/ms-playwright
+      # Vault RAG persistant
+      - ../src/backend/Pokekool.API/ai-brain:/src/Pokekool.API/ai-brain
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+networks:
+  default:
+    name: pokekool-dev-net
+
+volumes:
+  postgres-data:
+    name: pokekool-postgres-data
+  redis-data:
+    name: pokekool-redis-data
+  ollama-data:
+    name: pokekool-ollama-data
+  nuget-cache:
+    name: pokekool-nuget-cache
+  playwright-cache:
+    name: pokekool-playwright-cache

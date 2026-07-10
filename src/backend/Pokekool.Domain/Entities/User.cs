@@ -47,6 +47,13 @@ public sealed class User : Entity
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 
+    public void ChangeEmail(Email newEmail)
+    {
+        Email = newEmail;
+        EmailConfirmed = false;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
     public void ChangePassword(string newPasswordHash)
     {
         if (string.IsNullOrWhiteSpace(newPasswordHash))

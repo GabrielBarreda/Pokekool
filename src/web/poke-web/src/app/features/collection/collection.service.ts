@@ -2,11 +2,14 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
+  BulkAddResult,
+  CardScanMatchDto,
   CollectionCardDto,
   CollectionCardStatusDto,
   CollectionFilters,
   CollectionStatsDto,
   PagedResult,
+  ScanCollectionResult,
 } from './collection.models';
 
 @Injectable({ providedIn: 'root' })
@@ -52,5 +55,13 @@ export class CollectionService {
       `/api/v1/collection/cards/${cardId}/priority`,
       { isPriority }
     );
+  }
+
+  scanImage(formData: FormData): Observable<ScanCollectionResult> {
+    return this.http.post<ScanCollectionResult>('/api/v1/collection/scan', formData);
+  }
+
+  bulkAddOwned(cardIds: string[], matches: CardScanMatchDto[]): Observable<BulkAddResult> {
+    return this.http.post<BulkAddResult>('/api/v1/collection/bulk-own', { cardIds, matches });
   }
 }

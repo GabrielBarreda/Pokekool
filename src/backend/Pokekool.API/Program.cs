@@ -58,6 +58,9 @@ if (app.Environment.IsDevelopment())
        .ExcludeFromDescription();
 }
 
+// Sert les modèles 3D (.glb) compilés dans wwwroot/models (module Stockage Physique).
+app.UseStaticFiles();
+
 app.UseCors("default");
 app.UseAuthentication();
 app.UseAuthorization();

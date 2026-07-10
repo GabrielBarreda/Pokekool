@@ -36,7 +36,7 @@ interface UiThemeOption {
 
 const UI_THEME_OPTIONS: UiThemeOption[] = [
   { value: 'default', label: 'Défaut',  icon: '🗂️', description: 'Interface standard de l\'application.' },
-  { value: 'pokemon', label: 'Pokémon', icon: '🃏', description: 'Classeur à pochettes, transitions dédiées (page Bourse).' },
+  { value: 'pokemon', label: 'Pokémon', icon: '🃏', description: 'Classeur à pochettes, transitions dédiées (Bourse et Collection).' },
 ];
 
 @Component({
@@ -80,7 +80,7 @@ const UI_THEME_OPTIONS: UiThemeOption[] = [
 
     <app-card title="Thème Pokémon" style="margin-top: var(--space-4)">
       <p class="ui-theme-hint">
-        Habille la page Bourse en classeur à pochettes, avec ses propres transitions.
+        Habille les pages Bourse et Collection en classeur à pochettes, avec ses propres transitions.
       </p>
       <div class="theme-grid">
         @for (opt of uiThemeOptions; track opt.value) {

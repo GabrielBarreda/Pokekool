@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Pokekool.Domain.Entities;
 using Pokekool.Domain.Entities.Authorization;
 using Pokekool.Domain.Entities.Pokemon;
+using Pokekool.Domain.Entities.Shop;
+using ShopEntity = Pokekool.Domain.Entities.Shop.Shop;
 
 namespace Pokekool.Infrastructure.Persistence;
 
@@ -23,6 +25,30 @@ public sealed class PokekoolDbContext : DbContext
     public DbSet<ProviderCardMapping> ProviderCardMappings => Set<ProviderCardMapping>();
     public DbSet<ProviderSetting> ProviderSettings => Set<ProviderSetting>();
     public DbSet<UserCollection> UserCollections => Set<UserCollection>();
+
+    // ── Module Client ──────────────────────────────────────────
+    // NB: les DbSet Shop/ShopProduct/ShopStock/ShopAppointment sont déclarés par le module Boutique.
+    public DbSet<Pokekool.Domain.Entities.Shop.PurchaseRequest> PurchaseRequests => Set<Pokekool.Domain.Entities.Shop.PurchaseRequest>();
+
+    // ---- Module Boutique ----
+    public DbSet<ShopEntity> Shops => Set<ShopEntity>();
+    public DbSet<ShopProduct> ShopProducts => Set<ShopProduct>();
+    public DbSet<ShopStock> ShopStock => Set<ShopStock>();
+    public DbSet<ShopAppointment> ShopAppointments => Set<ShopAppointment>();
+
+    // ---- Module Stockage Physique ----
+    public DbSet<Pokekool.Domain.Entities.Storage.StorageRoom> StorageRooms
+        => Set<Pokekool.Domain.Entities.Storage.StorageRoom>();
+    public DbSet<Pokekool.Domain.Entities.Storage.StorageBox> StorageBoxes
+        => Set<Pokekool.Domain.Entities.Storage.StorageBox>();
+    public DbSet<Pokekool.Domain.Entities.Storage.StorageBinder> StorageBinders
+        => Set<Pokekool.Domain.Entities.Storage.StorageBinder>();
+    public DbSet<Pokekool.Domain.Entities.Storage.StorageLocation> StorageLocations
+        => Set<Pokekool.Domain.Entities.Storage.StorageLocation>();
+    public DbSet<Pokekool.Domain.Entities.Storage.StorageMovementEvent> StorageMovementEvents
+        => Set<Pokekool.Domain.Entities.Storage.StorageMovementEvent>();
+    public DbSet<Pokekool.Domain.Entities.Storage.StorageModelCompileJob> StorageModelCompileJobs
+        => Set<Pokekool.Domain.Entities.Storage.StorageModelCompileJob>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

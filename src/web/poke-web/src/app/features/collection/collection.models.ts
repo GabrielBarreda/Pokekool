@@ -69,3 +69,26 @@ export interface ContextMenuEvent {
   x: number;
   y: number;
 }
+
+// ── Scan ──────────────────────────────────────────────────────
+export interface CardScanMatchDto {
+  cardId: string | null;
+  cardName: string | null;
+  setName: string | null;
+  cardNumber: string | null;
+  imageSmall: string | null;
+  gradingCompany: string | null;
+  gradeValue: number | null;
+  certNumber: string | null;
+  confidence: number;
+  matched: boolean;
+}
+
+export interface ScanCollectionResult {
+  matches: CardScanMatchDto[];
+}
+
+export interface BulkAddResult {
+  added: number;
+  alreadyOwned: number;
+}
