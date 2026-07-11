@@ -7,6 +7,7 @@ import { StockStore } from '../../stock.store';
 import { BoutiqueService } from '../../boutique.service';
 import {
   ShopStockDto, ShopStockRequest, ShopProductType, PRODUCT_TYPE_LABELS, CardSummary,
+  CARD_LANGUAGES, GRADING_COMPANIES, CardLanguage,
 } from '../../boutique.models';
 import { PageHeaderComponent } from '@shared/ui/page-header/page-header.component';
 import { SpinnerComponent } from '@shared/ui/spinner/spinner.component';
@@ -18,8 +19,9 @@ import { ToastService } from '@shared/services/toast.service';
 import { CARD_CONDITIONS, conditionLabel } from '@shared/constants/card-condition.labels';
 
 const EMPTY = (): ShopStockRequest => ({
-  cardId: null, productName: null, type: 'CardRaw', condition: null, gradingCompany: null,
-  gradeValue: null, quantityTotal: 1, quantityAvailable: 0, quantityReserved: 0,
+  cardId: null, productName: null, type: 'CardRaw', language: 'EN',
+  condition: null, gradingCompany: null, gradeValue: null,
+  quantityTotal: 1, quantityAvailable: 0, quantityReserved: 0,
   purchasePrice: null, purchaseCurrency: 'EUR', notes: null,
 });
 
@@ -98,28 +100,49 @@ const EMPTY = (): ShopStockRequest => ({
             }
           </div>
 
+          <!-- Type + Langue -->
           <div class="grid2">
             <div class="fg">
               <label class="label">Type</label>
-              <select class="input" [(ngModel)]="draft.type">
+              <select class="input" [(ngModel)]="draft.type" (ngModelChange)="onTypeChange($event)">
                 @for (t of typeKeys; track t) { <option [value]="t">{{ typeLabels[t] }}</option> }
               </select>
             </div>
             <div class="fg">
-              <label class="label">État / Gradation</label>
-              <div class="inline">
-                <select class="input" [(ngModel)]="draft.condition">
-                  <option [ngValue]="null">État</option>
-                  @for (c of conditions; track c.code) { <option [value]="c.code">{{ c.label }}</option> }
-                </select>
-                <select class="input" [(ngModel)]="draft.gradingCompany">
-                  <option [ngValue]="null">Grade</option>
-                  <option value="PSA">PSA</option><option value="BGS">BGS</option><option value="CGC">CGC</option>
-                </select>
-                <input class="input" type="number" step="0.5" placeholder="Note" [(ngModel)]="draft.gradeValue" />
-              </div>
+              <label class="label">Langue de la carte</label>
+              <select class="input" [(ngModel)]="draft.language">
+                @for (l of cardLanguages; track l.code) {
+                  <option [value]="l.code">{{ l.flag }} {{ l.label }}</option>
+                }
+              </select>
             </div>
           </div>
+
+          <!-- État (Raw uniquement) ou Gradation (Gradée uniquement) — jamais les deux -->
+          @if (draft.type === 'CardRaw') {
+            <div class="fg">
+              <label class="label">État</label>
+              <select class="input" [(ngModel)]="draft.condition">
+                <option [ngValue]="null">— Sélectionner —</option>
+                @for (c of conditions; track c.code) { <option [value]="c.code">{{ c.label }}</option> }
+              </select>
+            </div>
+          }
+          @if (draft.type === 'CardGraded') {
+            <div class="grid2">
+              <div class="fg">
+                <label class="label">Société de gradation</label>
+                <select class="input" [(ngModel)]="draft.gradingCompany">
+                  <option [ngValue]="null">— Sélectionner —</option>
+                  @for (g of gradingCompanies; track g) { <option [value]="g">{{ g }}</option> }
+                </select>
+              </div>
+              <div class="fg">
+                <label class="label">Note</label>
+                <input class="input" type="number" step="0.5" min="1" max="10" placeholder="ex. 9.5" [(ngModel)]="draft.gradeValue" />
+              </div>
+            </div>
+          }
 
           <div class="grid3">
             <div class="fg"><label class="label">Total</label><input class="input" type="number" min="0" [(ngModel)]="draft.quantityTotal" /></div>
@@ -249,6 +272,8 @@ export class StockComponent implements OnInit {
   readonly typeKeys = Object.keys(PRODUCT_TYPE_LABELS) as ShopProductType[];
   readonly conditions = CARD_CONDITIONS;
   readonly conditionLabel = conditionLabel;
+  readonly cardLanguages = CARD_LANGUAGES;
+  readonly gradingCompanies = GRADING_COMPANIES;
 
   readonly modalOpen = signal(false);
   readonly editId = signal<string | null>(null);
@@ -277,13 +302,23 @@ export class StockComponent implements OnInit {
   onSearch(v: string): void { this.search$.next(v); }
   onType(v: string): void { this.store.setFilters({ type: (v || null) as ShopProductType | null, page: 1 }); }
 
+  /** Quand on change le type, on remet à zéro les champs de l'autre mode. */
+  onTypeChange(type: ShopProductType): void {
+    if (type === 'CardRaw') {
+      this.draft.gradingCompany = null;
+      this.draft.gradeValue = null;
+    } else if (type === 'CardGraded') {
+      this.draft.condition = null;
+    }
+  }
+
   openCreate(): void { this.draft = EMPTY(); this.editId.set(null); this.pickedCardName.set(''); this.modalOpen.set(true); }
   openEdit(s: ShopStockDto): void {
     this.editId.set(s.id);
     this.draft = {
-      cardId: s.cardId, productName: s.productName, type: s.type, condition: s.condition,
-      gradingCompany: s.gradingCompany, gradeValue: s.gradeValue, quantityTotal: s.quantityTotal,
-      quantityAvailable: s.quantityAvailable, quantityReserved: s.quantityReserved,
+      cardId: s.cardId, productName: s.productName, type: s.type, language: s.language ?? 'EN',
+      condition: s.condition, gradingCompany: s.gradingCompany, gradeValue: s.gradeValue,
+      quantityTotal: s.quantityTotal, quantityAvailable: s.quantityAvailable, quantityReserved: s.quantityReserved,
       purchasePrice: s.purchasePrice, purchaseCurrency: s.purchaseCurrency, notes: s.notes,
     };
     this.pickedCardName.set(s.cardName ?? '');
@@ -322,6 +357,7 @@ export class StockComponent implements OnInit {
       type:           s.type,
       cardId:         s.cardId,
       productName:    s.cardName ?? s.productName,
+      language:       s.language ?? 'EN',
       condition:      s.condition,
       gradingCompany: s.gradingCompany,
       gradeValue:     s.gradeValue,

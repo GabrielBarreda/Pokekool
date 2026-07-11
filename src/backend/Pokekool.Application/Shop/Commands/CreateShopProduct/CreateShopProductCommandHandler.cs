@@ -30,7 +30,9 @@ internal sealed class CreateShopProductCommandHandler
         var product = ShopProduct.Create(
             shop.Id,
             ShopEnumMap.ParseProductType(request.Type),
-            request.CardId, request.ProductName, request.Condition, request.GradingCompany,
+            request.CardId, request.ProductName,
+            request.Language,
+            request.Condition, request.GradingCompany,
             request.GradeValue, request.Price, request.Currency ?? "EUR", request.Quantity,
             request.IsAvailable, request.Description, request.PhotoUrl);
 

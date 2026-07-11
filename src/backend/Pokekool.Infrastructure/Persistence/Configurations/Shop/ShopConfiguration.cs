@@ -23,6 +23,7 @@ public sealed class ShopConfiguration : IEntityTypeConfiguration<Domain.Entities
         builder.Property(s => s.InstagramUrl).HasColumnName("instagram_url").HasMaxLength(500);
         builder.Property(s => s.TiktokUrl).HasColumnName("tiktok_url").HasMaxLength(500);
         builder.Property(s => s.PhotoUrls).HasColumnName("photo_urls").HasColumnType("jsonb");
+        builder.Property(s => s.PlvModel3dUrl).HasColumnName("plv_model_3d_url").HasMaxLength(500);
         builder.Property(s => s.CreatedAt).HasColumnName("created_at").IsRequired();
         builder.Property(s => s.UpdatedAt).HasColumnName("updated_at");
     }

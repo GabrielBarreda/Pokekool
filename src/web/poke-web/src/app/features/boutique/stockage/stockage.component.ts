@@ -1,11 +1,12 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, viewChild, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { StorageService } from './storage.service';
-import { StorageBoxDto, StorageRoomDto, StorageRoomLayoutDto } from './storage.models';
+import {
+  StorageBoxDto, StorageBinderDto, StorageRoomDto, StorageRoomLayoutDto, BoxDropEvent,
+} from './storage.models';
 import { StorageRoomViewerComponent } from './components/storage-room-viewer.component';
 import { StorageBoxListComponent } from './components/storage-box-list.component';
 import { StorageBinderListComponent } from './components/storage-binder-list.component';
-import { StorageMovementAlertsComponent } from './components/storage-movement-alerts.component';
 import { PageHeaderComponent } from '@shared/ui/page-header/page-header.component';
 import { SpinnerComponent } from '@shared/ui/spinner/spinner.component';
 import { EmptyStateComponent } from '@shared/ui/empty-state/empty-state.component';
@@ -13,8 +14,9 @@ import { HasPermissionDirective } from '@shared/directives/has-permission.direct
 import { ToastService } from '@shared/services/toast.service';
 
 /**
- * Onglet Stockage (sous le module Boutique admin).
- * Salle → vue 3D + cartons + classeurs + alertes déplacements.
+ * Onglet Stockage (module Boutique admin).
+ * Colonne gauche : liste des cartons (drag&drop vers la vue 3D) + classeurs du carton sélectionné.
+ * Zone principale : viewer 3D de la salle.
  */
 @Component({
   selector: 'app-stockage',
@@ -22,8 +24,8 @@ import { ToastService } from '@shared/services/toast.service';
   imports: [
     FormsModule, PageHeaderComponent, SpinnerComponent, EmptyStateComponent, HasPermissionDirective,
     StorageRoomViewerComponent, StorageBoxListComponent, StorageBinderListComponent,
-    StorageMovementAlertsComponent,
   ],
+  styleUrls: ['./controls.scss'],
   template: `
     <div class="page">
       <app-page-header title="Stockage physique" subtitle="Salles, cartons, classeurs et vue 3D">
@@ -48,23 +50,33 @@ import { ToastService } from '@shared/services/toast.service';
         <div class="center"><app-spinner size="lg" /></div>
       } @else if (rooms().length === 0) {
         <app-empty-state icon="🏬" title="Aucune salle de stockage"
-          description="Créez une première salle pour organiser vos cartons et importer un modèle 3D." />
+          description="Créez une première salle, importez un modèle 3D, puis glissez vos cartons dedans." />
       } @else {
         <div class="layout">
-          <div class="col col--main">
-            @if (currentRoom(); as room) {
-              <app-storage-room-viewer [room]="room" [boxes]="boxes()" (boxSelected)="onBoxSelected($event)" />
-            }
+          <aside class="side">
             <app-storage-box-list
               [roomId]="selectedRoomId()"
               [selectedId]="selectedBox()?.id ?? null"
               (boxPicked)="onBoxSelected($event)"
               (boxesChanged)="reloadLayout()" />
-          </div>
-          <div class="col col--side">
-            <app-storage-binder-list [box]="selectedBox()" />
-            <app-storage-movement-alerts />
-          </div>
+            <app-storage-binder-list
+              [box]="selectedBox()"
+              [binders]="binders()"
+              [selectedId]="selectedBinderId()"
+              (binderSelected)="onBinderSelected($event)"
+              (changed)="reloadBinders()" />
+          </aside>
+          <main class="main">
+            @if (currentRoom(); as room) {
+              <app-storage-room-viewer
+                [room]="room"
+                [boxes]="boxes()"
+                [selectedBoxId]="selectedBox()?.id ?? null"
+                [binders]="binders()"
+                (boxSelected)="onBoxSelected($event)"
+                (boxDropped)="onBoxDropped($event)" />
+            }
+          </main>
         </div>
       }
     </div>
@@ -74,8 +86,10 @@ import { ToastService } from '@shared/services/toast.service';
     .room-form { display: flex; gap: .5rem; margin-bottom: 1rem; }
     .room-form .input { flex: 0 0 320px; }
     .center { display: flex; justify-content: center; padding: 3rem; }
-    .layout { display: grid; grid-template-columns: 1fr 340px; gap: 1rem; align-items: start; }
-    .col { display: flex; flex-direction: column; gap: 1rem; }
+    .layout { display: grid; grid-template-columns: 320px 1fr; gap: 1rem; align-items: stretch; min-height: 560px; }
+    .side { display: flex; flex-direction: column; gap: 1rem; }
+    .main { display: flex; }
+    .main app-storage-room-viewer { width: 100%; }
     @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
   `],
 })
@@ -83,11 +97,15 @@ export class StockageComponent implements OnInit {
   private readonly service = inject(StorageService);
   private readonly toast = inject(ToastService);
 
+  private readonly boxList = viewChild(StorageBoxListComponent);
+
   readonly rooms = signal<StorageRoomDto[]>([]);
   readonly selectedRoomId = signal<string>('');
   readonly currentRoom = signal<StorageRoomDto | null>(null);
   readonly boxes = signal<StorageBoxDto[]>([]);
   readonly selectedBox = signal<StorageBoxDto | null>(null);
+  readonly binders = signal<StorageBinderDto[]>([]);
+  readonly selectedBinderId = signal<string | null>(null);
   readonly loading = signal(true);
   readonly creatingRoom = signal(false);
   roomName = '';
@@ -109,6 +127,8 @@ export class StockageComponent implements OnInit {
   selectRoom(roomId: string): void {
     this.selectedRoomId.set(roomId);
     this.selectedBox.set(null);
+    this.binders.set([]);
+    this.selectedBinderId.set(null);
     this.reloadLayout();
   }
 
@@ -124,7 +144,33 @@ export class StockageComponent implements OnInit {
     });
   }
 
-  onBoxSelected(box: StorageBoxDto): void { this.selectedBox.set(box); }
+  onBoxSelected(box: StorageBoxDto): void {
+    this.selectedBox.set(box);
+    this.selectedBinderId.set(null);
+    this.reloadBinders();
+  }
+
+  reloadBinders(): void {
+    const box = this.selectedBox();
+    if (!box) { this.binders.set([]); return; }
+    this.service.getBinders(box.id).subscribe({
+      next: b => this.binders.set(b),
+      error: () => this.toast.error('Impossible de charger les classeurs.'),
+    });
+  }
+
+  onBinderSelected(binder: StorageBinderDto): void {
+    // toggle : re-cliquer désélectionne (referme dans la 3D)
+    this.selectedBinderId.update(id => (id === binder.id ? null : binder.id));
+  }
+
+  onBoxDropped(evt: BoxDropEvent): void {
+    const json = JSON.stringify({ x: evt.x, y: evt.y, z: evt.z, rotation: 0 });
+    this.service.updateBoxPosition(evt.boxId, json).subscribe({
+      next: () => { this.reloadLayout(); this.boxList()?.refresh(); },
+      error: () => this.toast.error('Impossible de positionner le carton.'),
+    });
+  }
 
   toggleRoomForm(): void {
     this.creatingRoom.update(v => !v);

@@ -8,6 +8,7 @@ import {
   ShopStockDto, ShopStockRequest, StockFilters,
   ShopAppointmentDto, UpdateAppointmentRequest, AppointmentFilters,
   AppointmentStatus, PagedResult, CardSummary,
+  PlvCompileJobDto, ShopPlvModel,
 } from './boutique.models';
 
 @Injectable({ providedIn: 'root' })
@@ -21,6 +22,19 @@ export class BoutiqueService {
   }
   updateInfo(body: UpdateShopInfoRequest): Observable<ShopDto> {
     return this.http.put<ShopDto>(`${this.base}/info`, body);
+  }
+
+  // ── PLV Présentoir (modèle 3D .blend → .glb) ───────────
+  getPlvModel(): Observable<ShopPlvModel> {
+    return this.http.get<ShopPlvModel>(`${this.base}/plv/model`);
+  }
+  uploadPlvModel(file: File): Observable<PlvCompileJobDto> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    return this.http.post<PlvCompileJobDto>(`${this.base}/plv/model`, form);
+  }
+  getPlvCompileJob(jobId: string): Observable<PlvCompileJobDto> {
+    return this.http.get<PlvCompileJobDto>(`${this.base}/plv/compile-jobs/${jobId}`);
   }
 
   // ── Présentoir ─────────────────────────────────────────

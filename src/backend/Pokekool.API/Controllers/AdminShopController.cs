@@ -13,14 +13,18 @@ using Pokekool.Application.Shop.Commands.UpdateAppointmentStatus;
 using Pokekool.Application.Shop.Commands.UpdateShopInfo;
 using Pokekool.Application.Shop.Commands.UpdateShopProduct;
 using Pokekool.Application.Shop.Commands.UpdateShopStock;
+using Pokekool.Application.Shop.Commands.UploadShopPlvModel;
 using Pokekool.Application.Shop.Queries.GetShopAppointmentById;
+using Pokekool.Application.Shop.Queries.GetShopPlvModel;
 using Pokekool.Application.Shop.Queries.GetShopAppointments;
 using Pokekool.Application.Shop.Queries.GetShopInfo;
 using Pokekool.Application.Shop.Queries.GetShopProducts;
 using Pokekool.Application.Shop.Queries.GetShopStock;
+using Pokekool.Application.Storage.Queries;
 using Pokekool.Shared.Constants;
 using Pokekool.Shared.Dtos.Common;
 using Pokekool.Shared.Dtos.Shop;
+using Pokekool.Shared.Dtos.Storage;
 using Pokekool.Shared.Requests.Shop;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -64,6 +68,42 @@ public sealed class AdminShopController : BaseApiController
             body.InstagramUrl, body.TiktokUrl, body.PhotoUrls), ct));
 
     // ============================================================
+    // PLV PRÉSENTOIR — modèle 3D (.blend → .glb, pipeline Blender partagé)
+    // ============================================================
+
+    [HttpGet("plv/model")]
+    [RequirePermission(Permissions.ShopRead)]
+    [ProducesResponseType(typeof(ShopPlvModelDto), StatusCodes.Status200OK)]
+    [SwaggerOperation(Summary = "URL du modèle 3D de la PLV (présentoir) — lecture pour le viewer")]
+    public async Task<ActionResult<ShopPlvModelDto>> GetPlvModel(CancellationToken ct = default)
+        => Ok(await _mediator.Send(new GetShopPlvModelQuery(), ct));
+
+    [HttpPost("plv/model")]
+    [RequirePermission(Permissions.ShopWrite)]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(200_000_000)] // .blend potentiellement volumineux
+    [ProducesResponseType(typeof(StorageCompileJobDto), StatusCodes.Status202Accepted)]
+    [SwaggerOperation(Summary = "Uploader le projet Blender (.blend) de la PLV — compilation .glb asynchrone")]
+    public async Task<ActionResult<StorageCompileJobDto>> UploadPlvModel(
+        IFormFile file, CancellationToken ct = default)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest(new { message = "Fichier .blend manquant ou vide." });
+
+        await using var stream = file.OpenReadStream();
+        var job = await _mediator.Send(new UploadShopPlvModelCommand(stream, file.FileName), ct);
+        return Accepted(job);
+    }
+
+    [HttpGet("plv/compile-jobs/{jobId:guid}")]
+    [RequirePermission(Permissions.ShopRead)]
+    [ProducesResponseType(typeof(StorageCompileJobDto), StatusCodes.Status200OK)]
+    [SwaggerOperation(Summary = "Statut d'un job de compilation Blender de la PLV (polling)")]
+    public async Task<ActionResult<StorageCompileJobDto>> GetPlvCompileJob(
+        Guid jobId, CancellationToken ct = default)
+        => Ok(await _mediator.Send(new GetCompileJobStatusQuery(jobId), ct));
+
+    // ============================================================
     // PAGE 2 — PRÉSENTOIR (Admin + Employee)
     // ============================================================
 
@@ -88,7 +128,7 @@ public sealed class AdminShopController : BaseApiController
         [FromBody] ShopProductRequest body, CancellationToken ct = default)
     {
         var dto = await _mediator.Send(new CreateShopProductCommand(
-            body.Type, body.CardId, body.ProductName, body.Condition, body.GradingCompany,
+            body.Type, body.CardId, body.ProductName, body.Language ?? "EN", body.Condition, body.GradingCompany,
             body.GradeValue, body.Price, body.Currency, body.Quantity, body.IsAvailable,
             body.Description, body.PhotoUrl), ct);
         return Created($"/api/v1/admin/shop/products/{dto.Id}", dto);
@@ -102,7 +142,7 @@ public sealed class AdminShopController : BaseApiController
     public async Task<ActionResult<ShopProductDto>> UpdateProduct(
         Guid id, [FromBody] ShopProductRequest body, CancellationToken ct = default)
         => Ok(await _mediator.Send(new UpdateShopProductCommand(
-            id, body.Type, body.CardId, body.ProductName, body.Condition, body.GradingCompany,
+            id, body.Type, body.CardId, body.ProductName, body.Language ?? "EN", body.Condition, body.GradingCompany,
             body.GradeValue, body.Price, body.Currency, body.Quantity, body.IsAvailable,
             body.Description, body.PhotoUrl), ct));
 
@@ -150,7 +190,7 @@ public sealed class AdminShopController : BaseApiController
         [FromBody] ShopStockRequest body, CancellationToken ct = default)
     {
         var dto = await _mediator.Send(new CreateShopStockCommand(
-            body.CardId, body.ProductName, body.Type, body.Condition, body.GradingCompany,
+            body.CardId, body.ProductName, body.Type, body.Language ?? "EN", body.Condition, body.GradingCompany,
             body.GradeValue, body.QuantityTotal, body.QuantityAvailable, body.QuantityReserved,
             body.PurchasePrice, body.PurchaseCurrency, body.Notes), ct);
         return Created($"/api/v1/admin/shop/stock/{dto.Id}", dto);
@@ -164,7 +204,7 @@ public sealed class AdminShopController : BaseApiController
     public async Task<ActionResult<ShopStockDto>> UpdateStock(
         Guid id, [FromBody] ShopStockRequest body, CancellationToken ct = default)
         => Ok(await _mediator.Send(new UpdateShopStockCommand(
-            id, body.CardId, body.ProductName, body.Type, body.Condition, body.GradingCompany,
+            id, body.CardId, body.ProductName, body.Type, body.Language ?? "EN", body.Condition, body.GradingCompany,
             body.GradeValue, body.QuantityTotal, body.QuantityAvailable, body.QuantityReserved,
             body.PurchasePrice, body.PurchaseCurrency, body.Notes), ct));
 

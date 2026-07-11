@@ -79,7 +79,7 @@ internal sealed class ShopClientRepository : IShopClientRepository
             }
             return new ShopProductDto(
                 p.Id, p.ShopId, p.Type.ToString(), p.CardId, cardName, cardImage,
-                p.ProductName, p.Condition, p.GradingCompany, p.GradeValue,
+                p.ProductName, p.Language, p.Condition, p.GradingCompany, p.GradeValue,
                 p.Price, p.Currency, p.Quantity, p.IsAvailable, p.Description, p.PhotoUrl,
                 p.CreatedAt, p.UpdatedAt);
         }).ToList();

@@ -58,8 +58,12 @@ if (app.Environment.IsDevelopment())
        .ExcludeFromDescription();
 }
 
-// Sert les modèles 3D (.glb) compilés dans wwwroot/models (module Stockage Physique).
-app.UseStaticFiles();
+// Sert les modèles 3D (.glb) compilés dans wwwroot/models (module Stockage Physique + PLV boutique).
+// .glb/.gltf ne font pas partie des types MIME connus par défaut → sinon 404 sur ces fichiers.
+var contentTypeProvider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+contentTypeProvider.Mappings[".glb"] = "model/gltf-binary";
+contentTypeProvider.Mappings[".gltf"] = "model/gltf+json";
+app.UseStaticFiles(new Microsoft.AspNetCore.Builder.StaticFileOptions { ContentTypeProvider = contentTypeProvider });
 
 app.UseCors("default");
 app.UseAuthentication();

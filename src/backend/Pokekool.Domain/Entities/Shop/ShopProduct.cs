@@ -16,10 +16,13 @@ public sealed class ShopProduct : Entity
     /// <summary>Nom libre — utilisé pour les scellés sans carte référencée.</summary>
     public string? ProductName { get; private set; }
 
-    /// <summary>État de la carte (RAW uniquement) : NM/LP/MP/HP.</summary>
+    /// <summary>Langue physique de la carte : EN | FR | JP | DE | ES | IT | KO (influe sur la valeur).</summary>
+    public string Language { get; private set; } = "EN";
+
+    /// <summary>État de la carte (RAW uniquement) : NM/LP/MP/HP/DMG.</summary>
     public string? Condition { get; private set; }
 
-    /// <summary>Société de gradation (cartes gradées) : PSA/BGS/CGC.</summary>
+    /// <summary>Société de gradation (cartes gradées uniquement) : PSA/BGS/CGC/PCA/SGC/CCC.</summary>
     public string? GradingCompany { get; private set; }
     public decimal? GradeValue { get; private set; }
 
@@ -38,6 +41,7 @@ public sealed class ShopProduct : Entity
         ShopProductType type,
         Guid? cardId,
         string? productName,
+        string language,
         string? condition,
         string? gradingCompany,
         decimal? gradeValue,
@@ -54,7 +58,7 @@ public sealed class ShopProduct : Entity
             ShopId = shopId,
             CreatedAt = DateTimeOffset.UtcNow,
         };
-        product.Apply(type, cardId, productName, condition, gradingCompany, gradeValue,
+        product.Apply(type, cardId, productName, language, condition, gradingCompany, gradeValue,
             price, currency, quantity, isAvailable, description, photoUrl);
         return product;
     }
@@ -63,6 +67,7 @@ public sealed class ShopProduct : Entity
         ShopProductType type,
         Guid? cardId,
         string? productName,
+        string language,
         string? condition,
         string? gradingCompany,
         decimal? gradeValue,
@@ -73,7 +78,7 @@ public sealed class ShopProduct : Entity
         string? description,
         string? photoUrl)
     {
-        Apply(type, cardId, productName, condition, gradingCompany, gradeValue,
+        Apply(type, cardId, productName, language, condition, gradingCompany, gradeValue,
             price, currency, quantity, isAvailable, description, photoUrl);
         UpdatedAt = DateTimeOffset.UtcNow;
     }
@@ -89,6 +94,7 @@ public sealed class ShopProduct : Entity
         ShopProductType type,
         Guid? cardId,
         string? productName,
+        string language,
         string? condition,
         string? gradingCompany,
         decimal? gradeValue,
@@ -104,9 +110,23 @@ public sealed class ShopProduct : Entity
         if (cardId is null && string.IsNullOrWhiteSpace(productName))
             throw new ArgumentException("CardId or ProductName is required", nameof(productName));
 
+        // Règle métier : Gradée/Raw sont exclusifs
+        if (type == ShopProductType.CardGraded)
+        {
+            if (string.IsNullOrWhiteSpace(gradingCompany))
+                throw new DomainException("product.graded_requires_company", "Une carte gradée requiert une société de gradation.");
+            condition = null;
+        }
+        else if (type == ShopProductType.CardRaw)
+        {
+            gradingCompany = null;
+            gradeValue     = null;
+        }
+
         Type = type;
         CardId = cardId;
         ProductName = string.IsNullOrWhiteSpace(productName) ? null : productName.Trim();
+        Language = string.IsNullOrWhiteSpace(language) ? "EN" : language.Trim().ToUpperInvariant();
         Condition = condition;
         GradingCompany = gradingCompany;
         GradeValue = gradeValue;

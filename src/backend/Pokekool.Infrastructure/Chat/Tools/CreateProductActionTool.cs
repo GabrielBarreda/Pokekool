@@ -38,6 +38,7 @@ public sealed class CreateProductActionTool : IChatTool
             Type: ChatArg.String(args, "type") ?? "CardRaw",
             CardId: ChatArg.Guid(args, "cardId"),
             ProductName: ChatArg.String(args, "productName"),
+            Language: ChatArg.String(args, "language") ?? "EN",
             Condition: ChatArg.String(args, "condition"),
             GradingCompany: ChatArg.String(args, "gradingCompany"),
             GradeValue: ChatArg.Decimal(args, "gradeValue"),

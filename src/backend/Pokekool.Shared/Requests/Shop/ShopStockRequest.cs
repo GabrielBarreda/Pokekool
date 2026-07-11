@@ -5,6 +5,7 @@ public sealed record ShopStockRequest(
     Guid? CardId,
     string? ProductName,
     string Type,
+    string Language,
     string? Condition,
     string? GradingCompany,
     decimal? GradeValue,

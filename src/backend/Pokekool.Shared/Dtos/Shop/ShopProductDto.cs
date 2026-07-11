@@ -8,6 +8,7 @@ public sealed record ShopProductDto(
     string? CardName,
     string? CardImage,
     string? ProductName,
+    string Language,
     string? Condition,
     string? GradingCompany,
     decimal? GradeValue,

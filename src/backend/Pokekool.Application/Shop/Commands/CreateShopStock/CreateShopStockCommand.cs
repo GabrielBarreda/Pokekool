@@ -7,6 +7,7 @@ public sealed record CreateShopStockCommand(
     Guid? CardId,
     string? ProductName,
     string Type,
+    string Language,
     string? Condition,
     string? GradingCompany,
     decimal? GradeValue,

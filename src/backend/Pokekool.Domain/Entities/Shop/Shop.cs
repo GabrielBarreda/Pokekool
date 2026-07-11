@@ -25,6 +25,13 @@ public sealed class Shop : Entity
     public string? TiktokUrl { get; private set; }
     public string[] PhotoUrls { get; private set; } = Array.Empty<string>();
 
+    /// <summary>
+    /// URL publique du modèle 3D (.glb) de la PLV (présentoir carton) affichée en fond
+    /// de la page Présentoir. Mise à jour par <c>BlenderCompileBackgroundService</c> à la
+    /// fin d'une compilation .blend → .glb réussie (cible <c>shop</c>).
+    /// </summary>
+    public string? PlvModel3dUrl { get; private set; }
+
     private Shop() { }
 
     /// <summary>Crée une boutique vide (singleton initial).</summary>
@@ -61,6 +68,16 @@ public sealed class Shop : Entity
         InstagramUrl = instagramUrl;
         TiktokUrl = tiktokUrl;
         PhotoUrls = photoUrls ?? Array.Empty<string>();
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Définit (ou efface) l'URL du modèle 3D de la PLV. Appelée par le pipeline Blender
+    /// une fois le .glb compilé.
+    /// </summary>
+    public void SetPlvModel3dUrl(string? url)
+    {
+        PlvModel3dUrl = string.IsNullOrWhiteSpace(url) ? null : url.Trim();
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 }

@@ -33,15 +33,16 @@ RUN dotnet publish ./backend/Pokekool.API/Pokekool.API.csproj \
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 
-# Version de Blender (LTS). Modifiable au build : --build-arg BLENDER_VERSION=...
-ARG BLENDER_VERSION=4.2.3
-ARG BLENDER_MAJOR=4.2
+# Version de Blender. DOIT être >= à la version qui a créé les .blend uploadés
+# (un .blend est illisible par un Blender plus ancien). Modifiable : --build-arg BLENDER_VERSION=...
+ARG BLENDER_VERSION=5.1.2
+ARG BLENDER_MAJOR=5.1
 
-# Dépendances runtime minimales pour Blender headless (--background, pas de display).
+# Dépendances runtime pour Blender headless (--background, pas de display).
 RUN apt-get update && apt-get install -y --no-install-recommends \
         wget xz-utils ca-certificates \
-        libgl1 libxi6 libxxf86vm1 libxfixes3 libxrender1 libxkbcommon0 \
-        libsm6 libice6 libglib2.0-0 \
+        libgl1 libegl1 libxi6 libxxf86vm1 libxfixes3 libxrender1 libxkbcommon0 \
+        libxrandr2 libxinerama1 libxcursor1 libsm6 libice6 libglib2.0-0 libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Téléchargement + installation de Blender dans /opt, lien dans le PATH.

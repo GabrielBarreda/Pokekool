@@ -54,13 +54,19 @@ internal sealed class BlenderCliCompiler : IBlenderCompiler
             await process.WaitForExitAsync(timeoutCts.Token);
 
             var stderr = await stderrTask;
-            _ = await stdoutTask;
+            var stdout = await stdoutTask;
 
             if (process.ExitCode != 0)
             {
-                _logger.LogError("Blender a échoué (exit {Code}) : {Err}", process.ExitCode, stderr);
-                return BlenderCompileResult.Failure(
-                    string.IsNullOrWhiteSpace(stderr) ? $"Blender exit code {process.ExitCode}" : stderr);
+                _logger.LogError(
+                    "Blender a échoué (exit {Code}).\n--- STDOUT ---\n{Out}\n--- STDERR ---\n{Err}",
+                    process.ExitCode, stdout, stderr);
+
+                // Blender écrit souvent les erreurs Python sur stdout : on remonte le détail le plus utile.
+                var detail = !string.IsNullOrWhiteSpace(stderr) ? stderr
+                    : !string.IsNullOrWhiteSpace(stdout) ? stdout
+                    : $"Blender exit code {process.ExitCode}";
+                return BlenderCompileResult.Failure(Tail(detail.Trim(), 1500));
             }
 
             if (!File.Exists(outputGlbPath))
@@ -80,6 +86,10 @@ internal sealed class BlenderCliCompiler : IBlenderCompiler
             return BlenderCompileResult.Failure(ex.Message);
         }
     }
+
+    /// <summary>Ne conserve que les <paramref name="max"/> derniers caractères (les erreurs Blender utiles sont en fin de log).</summary>
+    private static string Tail(string text, int max)
+        => text.Length <= max ? text : "…" + text[^max..];
 
     private static void TryKill(Process? process)
     {

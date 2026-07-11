@@ -2,6 +2,7 @@
 export type ShopProductType = 'CardRaw' | 'CardGraded' | 'SealedSet' | 'SealedUpc';
 export type AppointmentStatus = 'Pending' | 'Confirmed' | 'InProgress' | 'Completed' | 'Cancelled';
 export type ShopServiceType = 'PreGrading' | 'Restoration' | 'Purchase' | 'Other';
+export type CardLanguage = 'EN' | 'FR' | 'JP' | 'DE' | 'ES' | 'IT' | 'KO';
 
 export const PRODUCT_TYPE_LABELS: Record<ShopProductType, string> = {
   CardRaw: 'Carte brute',
@@ -9,6 +10,21 @@ export const PRODUCT_TYPE_LABELS: Record<ShopProductType, string> = {
   SealedSet: 'Scellé (set)',
   SealedUpc: 'Scellé (UPC)',
 };
+
+/** Langues disponibles — affichées avec leur drapeau dans les formulaires et listes. */
+export const CARD_LANGUAGES: { code: CardLanguage; flag: string; label: string }[] = [
+  { code: 'EN', flag: '🇺🇸', label: 'Anglais' },
+  { code: 'FR', flag: '🇫🇷', label: 'Français' },
+  { code: 'JP', flag: '🇯🇵', label: 'Japonais' },
+  { code: 'DE', flag: '🇩🇪', label: 'Allemand' },
+  { code: 'ES', flag: '🇪🇸', label: 'Espagnol' },
+  { code: 'IT', flag: '🇮🇹', label: 'Italien' },
+  { code: 'KO', flag: '🇰🇷', label: 'Coréen' },
+];
+
+/** Sociétés de gradation reconnues (ordre : part de marché décroissante). */
+export const GRADING_COMPANIES = ['PSA', 'BGS', 'CGC', 'PCA', 'SGC', 'CCC'] as const;
+export type GradingCompany = typeof GRADING_COMPANIES[number];
 
 export const STATUS_LABELS: Record<AppointmentStatus, string> = {
   Pending: 'En attente',
@@ -55,8 +71,29 @@ export interface ShopDto {
   instagramUrl: string | null;
   tiktokUrl: string | null;
   photoUrls: string[];
+  plvModel3dUrl: string | null;
   createdAt: string;
   updatedAt: string | null;
+}
+
+/** Statut d'un job de compilation Blender (.blend → .glb), miroir backend PascalCase. */
+export type PlvCompileJobStatus = 'Queued' | 'Running' | 'Succeeded' | 'Failed';
+
+/** Job de compilation Blender de la PLV (polling front toutes les ~3s). */
+export interface PlvCompileJobDto {
+  id: string;
+  targetType: string;
+  targetId: string;
+  status: PlvCompileJobStatus;
+  glbOutputPath: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+/** URL du modèle 3D de la PLV (endpoint léger shop:read). */
+export interface ShopPlvModel {
+  plvModel3dUrl: string | null;
 }
 
 export interface UpdateShopInfoRequest {
@@ -82,6 +119,7 @@ export interface ShopProductDto {
   cardName: string | null;
   cardImage: string | null;
   productName: string | null;
+  language: CardLanguage;
   condition: string | null;
   gradingCompany: string | null;
   gradeValue: number | null;
@@ -99,6 +137,7 @@ export interface ShopProductRequest {
   type: ShopProductType;
   cardId: string | null;
   productName: string | null;
+  language: CardLanguage;
   condition: string | null;
   gradingCompany: string | null;
   gradeValue: number | null;
@@ -127,6 +166,7 @@ export interface ShopStockDto {
   cardImage: string | null;
   productName: string | null;
   type: ShopProductType;
+  language: CardLanguage;
   condition: string | null;
   gradingCompany: string | null;
   gradeValue: number | null;
@@ -144,6 +184,7 @@ export interface ShopStockRequest {
   cardId: string | null;
   productName: string | null;
   type: ShopProductType;
+  language: CardLanguage;
   condition: string | null;
   gradingCompany: string | null;
   gradeValue: number | null;

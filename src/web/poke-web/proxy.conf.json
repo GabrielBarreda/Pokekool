@@ -4,5 +4,11 @@
     "secure": false,
     "changeOrigin": true,
     "logLevel": "info"
+  },
+  "/models": {
+    "target": "http://localhost:5080",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "info"
   }
 }

@@ -57,6 +57,7 @@ internal sealed class BlenderCompileBackgroundService : BackgroundService
         var sp = scope.ServiceProvider;
         var jobRepo = sp.GetRequiredService<IStorageModelCompileJobRepository>();
         var roomRepo = sp.GetRequiredService<IStorageRoomRepository>();
+        var shopRepo = sp.GetRequiredService<IShopRepository>();
         var compiler = sp.GetRequiredService<IBlenderCompiler>();
         var fileStore = sp.GetRequiredService<IBlenderFileStore>();
         var uow = sp.GetRequiredService<IUnitOfWork>();
@@ -84,6 +85,11 @@ internal sealed class BlenderCompileBackgroundService : BackgroundService
             {
                 var room = await roomRepo.GetByIdAsync(job.TargetId, ct);
                 room?.SetModel3dUrl(publicUrl);
+            }
+            else if (job.TargetType == StorageModelCompileJob.TargetShop)
+            {
+                var shop = await shopRepo.GetByIdAsync(job.TargetId, ct);
+                shop?.SetPlvModel3dUrl(publicUrl);
             }
 
             await uow.SaveChangesAsync(ct);

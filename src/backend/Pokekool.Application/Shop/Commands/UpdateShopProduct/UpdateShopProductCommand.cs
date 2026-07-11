@@ -8,6 +8,7 @@ public sealed record UpdateShopProductCommand(
     string Type,
     Guid? CardId,
     string? ProductName,
+    string Language,
     string? Condition,
     string? GradingCompany,
     decimal? GradeValue,

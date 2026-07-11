@@ -6,7 +6,7 @@ import { ProductsStore } from '../../products.store';
 import { BoutiqueService } from '../../boutique.service';
 import {
   ShopProductDto, ShopProductRequest, ShopProductType,
-  PRODUCT_TYPE_LABELS, CardSummary,
+  PRODUCT_TYPE_LABELS, CardSummary, CARD_LANGUAGES, GRADING_COMPANIES, CardLanguage,
 } from '../../boutique.models';
 import { PageHeaderComponent } from '@shared/ui/page-header/page-header.component';
 import { SpinnerComponent } from '@shared/ui/spinner/spinner.component';
@@ -17,9 +17,10 @@ import { BadgeComponent } from '@shared/ui/badge/badge.component';
 import { CARD_CONDITIONS, conditionLabel } from '@shared/constants/card-condition.labels';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { ThemeStore } from '@core/theme/theme.store';
+import { PresentoirPlvViewerComponent } from './plv-viewer.component';
 
 const EMPTY_FORM = (): ShopProductRequest => ({
-  type: 'CardRaw', cardId: null, productName: null, condition: null,
+  type: 'CardRaw', cardId: null, productName: null, language: 'EN', condition: null,
   gradingCompany: null, gradeValue: null, price: 0, currency: 'EUR',
   quantity: 1, isAvailable: true, description: null, photoUrl: null,
 });
@@ -30,6 +31,7 @@ const EMPTY_FORM = (): ShopProductRequest => ({
   imports: [
     CommonModule, FormsModule, PageHeaderComponent, SpinnerComponent, EmptyStateComponent,
     ModalComponent, ConfirmDialogComponent, BadgeComponent, HasPermissionDirective,
+    PresentoirPlvViewerComponent,
   ],
   template: `
     <div class="page">
@@ -37,92 +39,8 @@ const EMPTY_FORM = (): ShopProductRequest => ({
         <button *hasPermission="'shop:write'" class="btn-primary" (click)="openCreate()">+ Nouvel article</button>
       </app-page-header>
 
-      <!-- Filtres -->
-      <div class="filters">
-        <input class="input" placeholder="Rechercher…" [ngModel]="store.filters().search"
-               (ngModelChange)="onSearch($event)" />
-        <select class="input" [ngModel]="store.filters().type ?? ''" (ngModelChange)="onType($event)">
-          <option value="">Tous les types</option>
-          @for (t of typeKeys; track t) { <option [value]="t">{{ typeLabels[t] }}</option> }
-        </select>
-        <select class="input" [ngModel]="availabilityValue()" (ngModelChange)="onAvailability($event)">
-          <option value="">Toutes dispos</option>
-          <option value="true">Disponible</option>
-          <option value="false">Indisponible</option>
-        </select>
-      </div>
-
-      @if (store.loading()) {
-        <div class="center"><app-spinner size="lg" /></div>
-      } @else if (store.items().length === 0) {
-        <app-empty-state icon="🃏" title="Aucun article"
-          description="Ajoutez votre premier article au présentoir." />
-      } @else {
-        <div class="plv-board">
-          <div class="plv-shelf">
-            <div class="plv-shelf-label">
-              À vendre · {{ store.items().length }} articles
-            </div>
-
-            <div class="plv-grid">
-              @for (p of store.items(); track p.id) {
-                <div class="plv-card-slot" [class.plv-card-slot--unavailable]="!p.isAvailable">
-
-                  <!-- Image plein cadre (style CollectionCardComponent) -->
-                  <div class="plv-card-img-wrap">
-                    @if (p.photoUrl || p.cardImage) {
-                      <img class="plv-card-img" [src]="p.photoUrl || p.cardImage" [alt]="p.cardName || p.productName" loading="lazy" />
-                    } @else {
-                      <div class="plv-card-placeholder">🃏</div>
-                    }
-
-                    <!-- Badge dispo (coin supérieur droit) -->
-                    <span class="plv-dispo-badge" [class.plv-dispo-badge--off]="!p.isAvailable">
-                      {{ p.isAvailable ? '●' : '○' }}
-                    </span>
-
-                    <!-- Overlay grisé si indisponible -->
-                    @if (!p.isAvailable) {
-                      <div class="plv-unavail-overlay">Épuisé</div>
-                    }
-                  </div>
-
-                  <!-- Étiquette prix (style price tag carton) -->
-                  <div class="plv-price-tag">
-                    <div class="plv-price-tag__name">{{ p.cardName || p.productName }}</div>
-                    <div class="plv-price-tag__sub">
-                      {{ p.gradingCompany ? p.gradingCompany + ' ' + (p.gradeValue ?? '') : (conditionLabel(p.condition) || typeLabels[p.type]) }}
-                      @if (p.quantity > 1) { · ×{{ p.quantity }} }
-                    </div>
-                    <div class="plv-price-tag__price">{{ p.price | number:'1.2-2' }} {{ p.currency }}</div>
-                  </div>
-
-                  <!-- Actions au hover -->
-                  <div class="plv-card-actions">
-                    <label class="plv-toggle" [title]="p.isAvailable ? 'Désactiver' : 'Activer'">
-                      <input type="checkbox" [checked]="p.isAvailable" [disabled]="p.quantity === 0" (change)="toggle(p)" />
-                      <span>{{ p.isAvailable ? 'En vente' : 'Inactif' }}</span>
-                    </label>
-                    <button *hasPermission="'shop:write'" class="plv-ic" (click)="openEdit(p)" title="Modifier">✎</button>
-                    <button *hasPermission="'shop:write'" class="plv-ic plv-ic--danger" (click)="deleteTarget.set(p)" title="Supprimer">🗑</button>
-                  </div>
-
-                </div>
-              }
-            </div>
-          </div>
-        </div>
-
-        @if (store.totalItems() > store.filters().pageSize) {
-          <div class="plv-pagination-bar">
-            <button class="plv-page-btn" [disabled]="store.filters().page <= 1"
-                    (click)="store.setFilters({ page: store.filters().page - 1 })">← Précédent</button>
-            <span class="plv-page-info">Page {{ store.filters().page }}</span>
-            <button class="plv-page-btn" [disabled]="store.filters().page * store.filters().pageSize >= store.totalItems()"
-                    (click)="store.setFilters({ page: store.filters().page + 1 })">Suivant →</button>
-          </div>
-        }
-      }
+      <!-- Présentoir 3D (PLV) : les articles en vente sont posés sur les étagères -->
+      <app-presentoir-plv-viewer [products]="store.items()" />
     </div>
 
     <!-- Modale création / édition -->
@@ -132,16 +50,25 @@ const EMPTY_FORM = (): ShopProductRequest => ({
           <div class="grid2">
             <div class="fg">
               <label class="label">Type</label>
-              <select class="input" [(ngModel)]="draft.type">
+              <select class="input" [(ngModel)]="draft.type" (ngModelChange)="onTypeChange()">
                 @for (t of typeKeys; track t) { <option [value]="t">{{ typeLabels[t] }}</option> }
               </select>
             </div>
             <div class="fg">
-              <label class="label">Prix</label>
-              <div class="inline">
-                <input class="input" type="number" min="0" step="0.01" [(ngModel)]="draft.price" />
-                <input class="input cur" [(ngModel)]="draft.currency" />
-              </div>
+              <label class="label">Langue de la carte</label>
+              <select class="input" [(ngModel)]="draft.language">
+                @for (l of cardLanguages; track l.code) {
+                  <option [value]="l.code">{{ l.flag }} {{ l.label }}</option>
+                }
+              </select>
+            </div>
+          </div>
+
+          <div class="fg">
+            <label class="label">Prix</label>
+            <div class="inline">
+              <input class="input" type="number" min="0" step="0.01" [(ngModel)]="draft.price" />
+              <input class="input cur" [(ngModel)]="draft.currency" />
             </div>
           </div>
 
@@ -170,25 +97,30 @@ const EMPTY_FORM = (): ShopProductRequest => ({
             }
           </div>
 
-          <div class="grid2">
+          @if (draft.type === 'CardRaw') {
             <div class="fg">
-              <label class="label">État (RAW)</label>
+              <label class="label">État</label>
               <select class="input" [(ngModel)]="draft.condition">
                 <option [ngValue]="null">—</option>
                 @for (c of conditions; track c.code) { <option [value]="c.code">{{ c.label }}</option> }
               </select>
             </div>
-            <div class="fg">
-              <label class="label">Gradation</label>
-              <div class="inline">
+          }
+          @if (draft.type === 'CardGraded') {
+            <div class="grid2">
+              <div class="fg">
+                <label class="label">Société de gradation</label>
                 <select class="input" [(ngModel)]="draft.gradingCompany">
                   <option [ngValue]="null">—</option>
-                  <option value="PSA">PSA</option><option value="BGS">BGS</option><option value="CGC">CGC</option>
+                  @for (g of gradingCompanies; track g) { <option [value]="g">{{ g }}</option> }
                 </select>
-                <input class="input" type="number" step="0.5" placeholder="Note" [(ngModel)]="draft.gradeValue" />
+              </div>
+              <div class="fg">
+                <label class="label">Note</label>
+                <input class="input" type="number" step="0.5" min="1" max="10" [(ngModel)]="draft.gradeValue" />
               </div>
             </div>
-          </div>
+          }
 
           <div class="grid2">
             <div class="fg">
@@ -230,7 +162,7 @@ const EMPTY_FORM = (): ShopProductRequest => ({
     }
   `,
   styles: [`
-    .page { display: flex; flex-direction: column; gap: var(--space-5); }
+    .page { display: flex; flex-direction: column; gap: var(--space-5); position: relative; z-index: 1; }
     .center { display: flex; justify-content: center; padding: var(--space-12) 0; }
     .filters { display: flex; gap: var(--space-3); flex-wrap: wrap; }
     .filters .input { max-width: 220px; }
@@ -521,6 +453,8 @@ export class PresentoirComponent implements OnInit {
 
   readonly typeLabels = PRODUCT_TYPE_LABELS;
   readonly typeKeys = Object.keys(PRODUCT_TYPE_LABELS) as ShopProductType[];
+  readonly cardLanguages = CARD_LANGUAGES;
+  readonly gradingCompanies = GRADING_COMPANIES;
 
   readonly modalOpen = signal(false);
   readonly editId = signal<string | null>(null);
@@ -559,7 +493,8 @@ export class PresentoirComponent implements OnInit {
   openEdit(p: ShopProductDto): void {
     this.editId.set(p.id);
     this.draft = {
-      type: p.type, cardId: p.cardId, productName: p.productName, condition: p.condition,
+      type: p.type, cardId: p.cardId, productName: p.productName,
+      language: (p.language ?? 'EN') as CardLanguage, condition: p.condition,
       gradingCompany: p.gradingCompany, gradeValue: p.gradeValue, price: p.price,
       currency: p.currency, quantity: p.quantity, isAvailable: p.isAvailable,
       description: p.description, photoUrl: p.photoUrl,
@@ -576,6 +511,15 @@ export class PresentoirComponent implements OnInit {
     this.pickedCardName.set(c.name); this.cardResults.set([]); this.cardQuery.set('');
   }
   clearCard(): void { this.draft.cardId = null; this.pickedCardName.set(''); }
+
+  onTypeChange(): void {
+    if (this.draft.type === 'CardGraded') {
+      this.draft.condition = null;
+    } else {
+      this.draft.gradingCompany = null;
+      this.draft.gradeValue = null;
+    }
+  }
 
   isValid(): boolean {
     return (!!this.draft.cardId || !!this.draft.productName?.trim()) && this.draft.price >= 0 && this.draft.quantity >= 0;

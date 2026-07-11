@@ -790,6 +790,11 @@ namespace Pokekool.Infrastructure.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("photo_urls");
 
+                    b.Property<string>("PlvModel3dUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("plv_model_3d_url");
+
                     b.Property<string[]>("Services")
                         .IsRequired()
                         .HasColumnType("jsonb")
@@ -940,6 +945,14 @@ namespace Pokekool.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_available");
 
+                    b.Property<string>("Language")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)")
+                        .HasDefaultValue("EN")
+                        .HasColumnName("language");
+
                     b.Property<string>("PhotoUrl")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -1016,6 +1029,14 @@ namespace Pokekool.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("grading_company");
+
+                    b.Property<string>("Language")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)")
+                        .HasDefaultValue("EN")
+                        .HasColumnName("language");
 
                     b.Property<string>("Notes")
                         .HasColumnType("text")

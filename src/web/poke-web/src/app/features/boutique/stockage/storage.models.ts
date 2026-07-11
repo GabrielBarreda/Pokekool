@@ -11,6 +11,22 @@ export const LABEL_ORIGIN_LABELS: Record<LabelOrigin, string> = {
 export const BOX_SIZES = ['S', 'M', 'L', 'XL'] as const;
 export type BoxSize = (typeof BOX_SIZES)[number];
 
+// ── Assets 3D fixes (servis en statique, pas d'upload) ──────────────────────
+export const STORAGE_ASSETS = {
+  cartonClosed: '/assets/3d/storage/carton_closed.glb',
+  cartonOpen:   '/assets/3d/storage/carton_open.glb',
+  binderClosed: '/assets/3d/storage/binder_closed.glb',
+  binderOpen:   '/assets/3d/storage/binder_open.glb',
+} as const;
+
+/** Payload émis quand un carton est déposé (drag&drop) sur le plan 3D. */
+export interface BoxDropEvent {
+  boxId: string;
+  x: number;
+  y: number;
+  z: number;
+}
+
 // ── DTOs ────────────────────────────────────────────────────────────────────
 export interface StorageRoomDto {
   id: string;

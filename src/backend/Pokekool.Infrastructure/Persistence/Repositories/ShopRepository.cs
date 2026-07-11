@@ -20,4 +20,7 @@ internal sealed class ShopRepository : IShopRepository
         await _db.SaveChangesAsync(ct);
         return shop;
     }
+
+    public Task<ShopEntity?> GetByIdAsync(Guid id, CancellationToken ct = default)
+        => _db.Shops.FirstOrDefaultAsync(s => s.Id == id, ct);
 }

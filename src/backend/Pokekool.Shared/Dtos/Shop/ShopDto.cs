@@ -13,5 +13,6 @@ public sealed record ShopDto(
     string? InstagramUrl,
     string? TiktokUrl,
     IReadOnlyList<string> PhotoUrls,
+    string? PlvModel3dUrl,
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt);

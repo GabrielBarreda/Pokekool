@@ -13,8 +13,9 @@ namespace Pokekool.Domain.Entities.Storage;
 public sealed class StorageModelCompileJob : Entity
 {
     public const string TargetRoom = "room";
+    public const string TargetShop = "shop";
 
-    /// <summary>'room' (seul cas actuel, gardé générique).</summary>
+    /// <summary>'room' (salle de stockage) ou 'shop' (PLV présentoir boutique). Gardé générique.</summary>
     public string TargetType { get; private set; } = TargetRoom;
     public Guid TargetId { get; private set; }
 
@@ -43,6 +44,28 @@ public sealed class StorageModelCompileJob : Entity
             Id = id == Guid.Empty ? Guid.NewGuid() : id,
             TargetType = TargetRoom,
             TargetId = roomId,
+            Status = CompileJobStatus.Queued,
+            BlendFilePath = blendFilePath,
+            RequestedBy = requestedBy,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+    }
+
+    /// <summary>
+    /// Crée un job pour la PLV d'une boutique (présentoir carton). Même contrat que
+    /// <see cref="CreateForRoom"/> : <paramref name="id"/> est fourni en amont pour un nommage
+    /// déterministe du fichier .blend.
+    /// </summary>
+    public static StorageModelCompileJob CreateForShop(Guid id, Guid shopId, string blendFilePath, Guid requestedBy)
+    {
+        if (string.IsNullOrWhiteSpace(blendFilePath))
+            throw new DomainException("storage.compile.blend_required", "Chemin du fichier .blend requis.");
+
+        return new StorageModelCompileJob
+        {
+            Id = id == Guid.Empty ? Guid.NewGuid() : id,
+            TargetType = TargetShop,
+            TargetId = shopId,
             Status = CompileJobStatus.Queued,
             BlendFilePath = blendFilePath,
             RequestedBy = requestedBy,

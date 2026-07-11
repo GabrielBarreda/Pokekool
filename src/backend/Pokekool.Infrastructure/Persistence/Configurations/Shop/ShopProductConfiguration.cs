@@ -17,6 +17,7 @@ public sealed class ShopProductConfiguration : IEntityTypeConfiguration<ShopProd
             .HasConversion<string>().HasMaxLength(30).IsRequired();
         builder.Property(p => p.CardId).HasColumnName("card_id");
         builder.Property(p => p.ProductName).HasColumnName("product_name").HasMaxLength(255);
+        builder.Property(p => p.Language).HasColumnName("language").HasMaxLength(5).IsRequired().HasDefaultValue("EN");
         builder.Property(p => p.Condition).HasColumnName("condition").HasMaxLength(10);
         builder.Property(p => p.GradingCompany).HasColumnName("grading_company").HasMaxLength(20);
         builder.Property(p => p.GradeValue).HasColumnName("grade_value").HasPrecision(4, 1);

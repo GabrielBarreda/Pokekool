@@ -27,6 +27,7 @@ internal sealed class UpdateShopStockCommandHandler
         stock.Update(
             request.CardId, request.ProductName,
             ShopEnumMap.ParseProductType(request.Type),
+            request.Language,
             request.Condition, request.GradingCompany, request.GradeValue,
             request.QuantityTotal, request.QuantityAvailable, request.QuantityReserved,
             request.PurchasePrice, request.PurchaseCurrency, request.Notes);

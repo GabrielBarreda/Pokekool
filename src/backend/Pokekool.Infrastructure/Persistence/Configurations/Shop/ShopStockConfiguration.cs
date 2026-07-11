@@ -17,6 +17,7 @@ public sealed class ShopStockConfiguration : IEntityTypeConfiguration<ShopStock>
         builder.Property(s => s.ProductName).HasColumnName("product_name").HasMaxLength(255);
         builder.Property(s => s.Type).HasColumnName("type")
             .HasConversion<string>().HasMaxLength(30).IsRequired();
+        builder.Property(s => s.Language).HasColumnName("language").HasMaxLength(5).IsRequired().HasDefaultValue("EN");
         builder.Property(s => s.Condition).HasColumnName("condition").HasMaxLength(10);
         builder.Property(s => s.GradingCompany).HasColumnName("grading_company").HasMaxLength(20);
         builder.Property(s => s.GradeValue).HasColumnName("grade_value").HasPrecision(4, 1);
