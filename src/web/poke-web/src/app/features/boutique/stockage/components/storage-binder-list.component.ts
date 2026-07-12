@@ -29,7 +29,8 @@ import { StorageBinderDto, StorageBoxDto } from '../storage.models';
         } @else {
           <ul class="list">
             @for (b of binders(); track b.id) {
-              <li class="bd" [class.bd--sel]="b.id === selectedId()" (click)="select(b)">
+              <li class="bd" draggable="true" [class.bd--sel]="b.id === selectedId()"
+                  (dragstart)="onDragStart($event, b)" (click)="select(b)">
                 <span class="pos">{{ b.positionInBox ?? '·' }}</span>
                 <span class="lbl">{{ b.label }}</span>
               </li>
@@ -84,8 +85,11 @@ export class StorageBinderListComponent {
     if (!b || !this.label.trim()) return;
     this.saving.set(true);
     this.service.createBinder({
-      boxId: b.id, label: this.label.trim(),
+      label: this.label.trim(),
+      boxId: b.id,
       positionInBox: this.position != null ? Number(this.position) : null,
+      furnitureId: null,
+      levelIndex: null,
     }).subscribe({
       next: () => {
         this.saving.set(false); this.label = ''; this.position = null;
@@ -93,5 +97,10 @@ export class StorageBinderListComponent {
       },
       error: () => { this.saving.set(false); this.toast.error('Ajout impossible.'); },
     });
+  }
+
+  onDragStart(event: DragEvent, b: StorageBinderDto): void {
+    event.dataTransfer?.setData('text/plain', `binder:${b.id}`);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
   }
 }

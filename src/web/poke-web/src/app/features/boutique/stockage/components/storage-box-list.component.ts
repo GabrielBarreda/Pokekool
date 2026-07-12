@@ -161,7 +161,7 @@ export class StorageBoxListComponent {
   refresh(): void { this.reload(); }
 
   onDragStart(event: DragEvent, box: StorageBoxDto): void {
-    event.dataTransfer?.setData('text/plain', box.id);
+    event.dataTransfer?.setData('text/plain', `box:${box.id}`);
     if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
   }
 

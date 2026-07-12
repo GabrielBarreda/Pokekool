@@ -43,10 +43,13 @@ public sealed class StorageBoxConfiguration : IEntityTypeConfiguration<StorageBo
         builder.Property(b => b.Size).HasColumnName("size").HasMaxLength(4);
         builder.Property(b => b.Position3dJson).HasColumnName("position_3d").HasColumnType("jsonb");
         builder.Property(b => b.Notes).HasColumnName("notes");
+        builder.Property(b => b.FurnitureId).HasColumnName("furniture_id");
+        builder.Property(b => b.LevelIndex).HasColumnName("level_index");
         builder.Property(b => b.CreatedAt).HasColumnName("created_at").IsRequired();
         builder.Property(b => b.UpdatedAt).HasColumnName("updated_at");
 
         builder.HasIndex(b => b.RoomId).HasDatabaseName("ix_storage_box_room_id");
+        builder.HasIndex(b => b.FurnitureId).HasDatabaseName("ix_storage_box_furniture_id");
         // Unicité conditionnelle : uniquement quand la colonne n'est pas nulle (index filtré PostgreSQL).
         builder.HasIndex(b => b.Barcode)
             .HasDatabaseName("ux_storage_box_barcode")
@@ -61,6 +64,12 @@ public sealed class StorageBoxConfiguration : IEntityTypeConfiguration<StorageBo
             .WithMany()
             .HasForeignKey(b => b.RoomId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Rangement sur meuble (nullable) : SET NULL à la suppression du meuble.
+        builder.HasOne<StorageFurniture>()
+            .WithMany()
+            .HasForeignKey(b => b.FurnitureId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
 
@@ -71,18 +80,26 @@ public sealed class StorageBinderConfiguration : IEntityTypeConfiguration<Storag
         builder.ToTable("storage_binder");
         builder.HasKey(b => b.Id);
         builder.Property(b => b.Id).HasColumnName("id");
-        builder.Property(b => b.BoxId).HasColumnName("box_id").IsRequired();
+        builder.Property(b => b.BoxId).HasColumnName("box_id"); // nullable : classeur en carton OU sur meuble
         builder.Property(b => b.Label).HasColumnName("label").HasMaxLength(200).IsRequired();
         builder.Property(b => b.PositionInBox).HasColumnName("position_in_box");
+        builder.Property(b => b.FurnitureId).HasColumnName("furniture_id");
+        builder.Property(b => b.LevelIndex).HasColumnName("level_index");
         builder.Property(b => b.CreatedAt).HasColumnName("created_at").IsRequired();
         builder.Property(b => b.UpdatedAt).HasColumnName("updated_at");
 
         builder.HasIndex(b => b.BoxId).HasDatabaseName("ix_storage_binder_box_id");
+        builder.HasIndex(b => b.FurnitureId).HasDatabaseName("ix_storage_binder_furniture_id");
 
         builder.HasOne<StorageBox>()
             .WithMany()
             .HasForeignKey(b => b.BoxId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne<StorageFurniture>()
+            .WithMany()
+            .HasForeignKey(b => b.FurnitureId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
 
@@ -160,5 +177,32 @@ public sealed class StorageModelCompileJobConfiguration : IEntityTypeConfigurati
 
         builder.HasIndex(j => new { j.TargetType, j.TargetId })
             .HasDatabaseName("ix_storage_model_compile_job_target");
+    }
+}
+
+public sealed class StorageFurnitureConfiguration : IEntityTypeConfiguration<StorageFurniture>
+{
+    public void Configure(EntityTypeBuilder<StorageFurniture> builder)
+    {
+        builder.ToTable("storage_furniture");
+        builder.HasKey(f => f.Id);
+        builder.Property(f => f.Id).HasColumnName("id");
+        builder.Property(f => f.RoomId).HasColumnName("room_id").IsRequired();
+        builder.Property(f => f.Type).HasColumnName("type")
+            .HasConversion<string>().HasMaxLength(30).IsRequired();
+        builder.Property(f => f.Name).HasColumnName("name").HasMaxLength(200);
+        builder.Property(f => f.Position3dJson).HasColumnName("position_3d").HasColumnType("jsonb");
+        builder.Property(f => f.Notes).HasColumnName("notes");
+        builder.Property(f => f.CreatedAt).HasColumnName("created_at").IsRequired();
+        builder.Property(f => f.UpdatedAt).HasColumnName("updated_at");
+
+        builder.Ignore(f => f.LevelCount); // dérivé
+
+        builder.HasIndex(f => f.RoomId).HasDatabaseName("ix_storage_furniture_room_id");
+
+        builder.HasOne<StorageRoom>()
+            .WithMany()
+            .HasForeignKey(f => f.RoomId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

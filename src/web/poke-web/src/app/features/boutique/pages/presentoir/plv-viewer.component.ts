@@ -221,6 +221,7 @@ export class PresentoirPlvViewerComponent implements OnDestroy {
       gltf => {
         this.clearModel();
         gltf.scene.name = '__plv';
+        gltf.scene.scale.x = this.stretchX; // élargit le présentoir (test code)
         this.scene!.add(gltf.scene);
         gltf.scene.updateMatrixWorld(true);
         this.hasModel.set(true);
@@ -263,7 +264,9 @@ export class PresentoirPlvViewerComponent implements OnDestroy {
   }
 
   // ── Emplacements par étagère ────────────────────────────────────────────────
-  private readonly perShelf = 3;
+  private readonly perShelf = 10;
+  /** Étirement horizontal du modèle (1 = natif ; le .blend large gère déjà la largeur). */
+  private readonly stretchX = 1;
 
   /** Pour chaque étagère : centre X, hauteur du plateau, dégagement au-dessus, Z avant, dims carte. */
   private shelfSlots(): {
@@ -292,12 +295,16 @@ export class PresentoirPlvViewerComponent implements OnDestroy {
     if (!this.camera || !this.shelfBoxes.length) return;
 
     const fov = (this.camera.fov * Math.PI) / 180;
+    const aspect = this.camera.aspect || 2;
     // Caméra toujours DEVANT l'ensemble du présentoir (jamais à l'intérieur d'un compartiment).
     const frontZmodel = this.frontSign > 0 ? this.modelBox.max.z : this.modelBox.min.z;
 
     for (const slot of this.shelfSlots()) {
-      const viewH = Math.max(slot.clearance * 1.6, 0.24); // cadrage + contexte, avec un minimum
-      const camDist = (viewH / 2) / Math.tan(fov / 2);
+      const shelfWidth = slot.slotW * this.perShelf;
+      const viewH = Math.max(slot.clearance * 1.4, 0.22);
+      const distH = (viewH / 2) / Math.tan(fov / 2);              // pour tenir en hauteur
+      const distW = (shelfWidth * 0.55) / (Math.tan(fov / 2) * aspect); // pour voir toute la largeur
+      const camDist = Math.max(distH, distW);
       const look = new THREE.Vector3(slot.cx, slot.centerY, slot.frontZ);
       const pos = new THREE.Vector3(slot.cx, slot.centerY, frontZmodel + this.frontSign * camDist);
       this.camKeyframes.push({ pos, look });

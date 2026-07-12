@@ -49,6 +49,8 @@ public sealed class PokekoolDbContext : DbContext
         => Set<Pokekool.Domain.Entities.Storage.StorageMovementEvent>();
     public DbSet<Pokekool.Domain.Entities.Storage.StorageModelCompileJob> StorageModelCompileJobs
         => Set<Pokekool.Domain.Entities.Storage.StorageModelCompileJob>();
+    public DbSet<Pokekool.Domain.Entities.Storage.StorageFurniture> StorageFurnitures
+        => Set<Pokekool.Domain.Entities.Storage.StorageFurniture>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

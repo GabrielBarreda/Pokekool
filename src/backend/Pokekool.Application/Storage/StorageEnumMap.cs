@@ -14,4 +14,10 @@ internal static class StorageEnumMap
 
     public static LabelOrigin? ParseLabelOriginOrNull(string? value)
         => Enum.TryParse<LabelOrigin>(value, ignoreCase: true, out var result) ? result : null;
+
+    public static FurnitureType ParseFurnitureType(string? value)
+        => Enum.TryParse<FurnitureType>(value, ignoreCase: true, out var result)
+            ? result
+            : throw new DomainException("storage.furniture.invalid_type",
+                $"Type de meuble invalide : '{value}'. Attendu : ShelfClassic6 ou ShelfWall.");
 }

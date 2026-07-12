@@ -29,3 +29,12 @@ public enum CompileJobStatus
     Succeeded = 3,
     Failed    = 4,
 }
+
+/// <summary>Type de meuble de rangement (modèle 3D fixe associé).</summary>
+public enum FurnitureType
+{
+    /// <summary>Étagère classique verticale, 6 niveaux.</summary>
+    ShelfClassic6 = 1,
+    /// <summary>Étagère murale longue, un seul niveau.</summary>
+    ShelfWall     = 2,
+}

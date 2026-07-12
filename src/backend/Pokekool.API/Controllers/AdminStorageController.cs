@@ -137,14 +137,69 @@ public sealed class AdminStorageController : BaseApiController
     [HttpPost("binders")]
     [RequirePermission(Permissions.StorageWrite)]
     [ProducesResponseType(typeof(StorageBinderDto), StatusCodes.Status201Created)]
-    [SwaggerOperation(Summary = "Créer un classeur dans un carton")]
+    [SwaggerOperation(Summary = "Créer un classeur (dans un carton OU sur un meuble)")]
     public async Task<ActionResult<StorageBinderDto>> CreateBinder(
         [FromBody] CreateStorageBinderRequest body, CancellationToken ct = default)
     {
         var binder = await _mediator.Send(new CreateStorageBinderCommand(
-            body.BoxId, body.Label, body.PositionInBox), ct);
+            body.Label, body.BoxId, body.PositionInBox, body.FurnitureId, body.LevelIndex), ct);
         return StatusCode(StatusCodes.Status201Created, binder);
     }
+
+    [HttpPatch("binders/{id:guid}/placement")]
+    [RequirePermission(Permissions.StorageWrite)]
+    [ProducesResponseType(typeof(StorageBinderDto), StatusCodes.Status200OK)]
+    [SwaggerOperation(Summary = "Ranger un classeur dans un carton ou sur un meuble")]
+    public async Task<ActionResult<StorageBinderDto>> PlaceBinder(
+        Guid id, [FromBody] PlaceBinderRequest body, CancellationToken ct = default)
+        => Ok(await _mediator.Send(new PlaceBinderCommand(
+            id, body.BoxId, body.PositionInBox, body.FurnitureId, body.LevelIndex), ct));
+
+    // ============================================================
+    // MEUBLES (étagères)
+    // ============================================================
+
+    [HttpPost("furniture")]
+    [RequirePermission(Permissions.StorageWrite)]
+    [ProducesResponseType(typeof(StorageFurnitureDto), StatusCodes.Status201Created)]
+    [SwaggerOperation(Summary = "Créer un meuble (choix du modèle : ShelfClassic6 | ShelfWall)")]
+    public async Task<ActionResult<StorageFurnitureDto>> CreateFurniture(
+        [FromBody] CreateStorageFurnitureRequest body, CancellationToken ct = default)
+    {
+        var f = await _mediator.Send(new CreateStorageFurnitureCommand(body.RoomId, body.Type, body.Name), ct);
+        return StatusCode(StatusCodes.Status201Created, f);
+    }
+
+    [HttpPatch("furniture/{id:guid}/position")]
+    [RequirePermission(Permissions.StorageWrite)]
+    [ProducesResponseType(typeof(StorageFurnitureDto), StatusCodes.Status200OK)]
+    [SwaggerOperation(Summary = "Déplacer un meuble dans la vue 3D")]
+    public async Task<ActionResult<StorageFurnitureDto>> UpdateFurniturePosition(
+        Guid id, [FromBody] UpdateFurniturePositionRequest body, CancellationToken ct = default)
+        => Ok(await _mediator.Send(new UpdateFurniturePositionCommand(id, body.Position3dJson), ct));
+
+    [HttpDelete("furniture/{id:guid}")]
+    [RequirePermission(Permissions.StorageWrite)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [SwaggerOperation(Summary = "Supprimer un meuble (son contenu est détaché, pas supprimé)")]
+    public async Task<IActionResult> DeleteFurniture(Guid id, CancellationToken ct = default)
+    {
+        await _mediator.Send(new DeleteStorageFurnitureCommand(id), ct);
+        return NoContent();
+    }
+
+    // ============================================================
+    // RANGEMENT DES CARTONS
+    // ============================================================
+
+    [HttpPatch("boxes/{id:guid}/placement")]
+    [RequirePermission(Permissions.StorageWrite)]
+    [ProducesResponseType(typeof(StorageBoxDto), StatusCodes.Status200OK)]
+    [SwaggerOperation(Summary = "Ranger un carton sur un meuble/niveau ou au sol")]
+    public async Task<ActionResult<StorageBoxDto>> PlaceBox(
+        Guid id, [FromBody] PlaceBoxRequest body, CancellationToken ct = default)
+        => Ok(await _mediator.Send(new PlaceBoxCommand(
+            id, body.FurnitureId, body.LevelIndex, body.Position3dJson), ct));
 
     // ============================================================
     // LOCALISATIONS

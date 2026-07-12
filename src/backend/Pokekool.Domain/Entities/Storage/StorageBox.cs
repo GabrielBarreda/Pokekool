@@ -27,6 +27,12 @@ public sealed class StorageBox : Entity
 
     public string? Notes { get; private set; }
 
+    /// <summary>Meuble sur lequel le carton est rangé (null = posé librement au sol via <see cref="Position3dJson"/>).</summary>
+    public Guid? FurnitureId { get; private set; }
+
+    /// <summary>Niveau du meuble (0-based) si rangé sur un meuble.</summary>
+    public short? LevelIndex { get; private set; }
+
     private StorageBox() { }
 
     public static StorageBox Create(
@@ -66,6 +72,26 @@ public sealed class StorageBox : Entity
     public void SetPosition3d(string? position3dJson)
     {
         Position3dJson = string.IsNullOrWhiteSpace(position3dJson) ? null : position3dJson.Trim();
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>Range le carton sur un meuble/niveau. Exclusif de la pose libre au sol.</summary>
+    public void PlaceOnFurniture(Guid furnitureId, short levelIndex)
+    {
+        if (levelIndex < 0)
+            throw new DomainException("storage.box.invalid_level", "Niveau invalide.");
+        FurnitureId = furnitureId;
+        LevelIndex = levelIndex;
+        Position3dJson = null; // la position est dérivée du meuble + niveau côté viewer
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>Repose le carton librement au sol (détache du meuble). Position 3D optionnelle.</summary>
+    public void PlaceOnFloor(string? position3dJson)
+    {
+        FurnitureId = null;
+        LevelIndex = null;
+        Position3dJson = string.IsNullOrWhiteSpace(position3dJson) ? Position3dJson : position3dJson.Trim();
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 

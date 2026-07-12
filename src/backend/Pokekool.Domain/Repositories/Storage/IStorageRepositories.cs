@@ -9,6 +9,14 @@ public interface IStorageRoomRepository
     Task AddAsync(StorageRoom room, CancellationToken ct = default);
 }
 
+public interface IStorageFurnitureRepository
+{
+    Task<StorageFurniture?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<IReadOnlyList<StorageFurniture>> ListByRoomAsync(Guid roomId, CancellationToken ct = default);
+    Task AddAsync(StorageFurniture furniture, CancellationToken ct = default);
+    void Remove(StorageFurniture furniture);
+}
+
 public interface IStorageBoxRepository
 {
     Task<StorageBox?> GetByIdAsync(Guid id, CancellationToken ct = default);
@@ -16,6 +24,9 @@ public interface IStorageBoxRepository
 
     /// <summary>Recherche un carton par code-barre OU code interne (lookup "scan théorique").</summary>
     Task<StorageBox?> FindByCodeAsync(string code, CancellationToken ct = default);
+
+    /// <summary>Cartons rangés sur un meuble donné (pour détacher à la suppression du meuble).</summary>
+    Task<IReadOnlyList<StorageBox>> ListByFurnitureAsync(Guid furnitureId, CancellationToken ct = default);
     Task AddAsync(StorageBox box, CancellationToken ct = default);
 }
 
@@ -24,6 +35,9 @@ public interface IStorageBinderRepository
     Task<StorageBinder?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<IReadOnlyList<StorageBinder>> ListByBoxAsync(Guid boxId, CancellationToken ct = default);
     Task<IReadOnlyList<StorageBinder>> ListByBoxIdsAsync(IReadOnlyList<Guid> boxIds, CancellationToken ct = default);
+
+    /// <summary>Classeurs posés directement sur un meuble donné.</summary>
+    Task<IReadOnlyList<StorageBinder>> ListByFurnitureAsync(Guid furnitureId, CancellationToken ct = default);
     Task AddAsync(StorageBinder binder, CancellationToken ct = default);
 }
 

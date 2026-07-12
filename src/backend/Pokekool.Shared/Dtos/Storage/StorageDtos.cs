@@ -19,14 +19,29 @@ public sealed record StorageBoxDto(
     string? Size,
     string? Position3dJson,
     string? Notes,
+    Guid? FurnitureId,
+    short? LevelIndex,
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt);
 
 public sealed record StorageBinderDto(
     Guid Id,
-    Guid BoxId,
+    Guid? BoxId,
     string Label,
     short? PositionInBox,
+    Guid? FurnitureId,
+    short? LevelIndex,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? UpdatedAt);
+
+public sealed record StorageFurnitureDto(
+    Guid Id,
+    Guid RoomId,
+    string Type,
+    string? Name,
+    int LevelCount,
+    string? Position3dJson,
+    string? Notes,
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt);
 
@@ -38,10 +53,12 @@ public sealed record StorageLocationDto(
     short? SlotPosition,
     DateTime MovedAt);
 
-/// <summary>Salle + tous ses cartons (avec classeurs) — payload de chargement de la vue 3D.</summary>
+/// <summary>Salle + meubles + cartons (avec classeurs) — payload de chargement de la vue 3D.</summary>
 public sealed record StorageRoomLayoutDto(
     StorageRoomDto Room,
-    IReadOnlyList<StorageBoxWithBindersDto> Boxes);
+    IReadOnlyList<StorageBoxWithBindersDto> Boxes,
+    IReadOnlyList<StorageFurnitureDto> Furniture,
+    IReadOnlyList<StorageBinderDto> LooseBinders);
 
 public sealed record StorageBoxWithBindersDto(
     StorageBoxDto Box,

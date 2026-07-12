@@ -24,7 +24,12 @@ public static class SwaggerExtensions
         });
 
         services.AddEndpointsApiExplorer();
-        services.AddSwaggerGen();
+        services.AddSwaggerGen(options =>
+        {
+            // Évite une exception 500 si deux actions génèrent le même operationId (ex. GetProducts
+            // dans AdminShopController et ShopClientController) — garde la première.
+            options.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
+        });
         services.TryAddEnumerable(ServiceDescriptor.Transient<IConfigureOptions<SwaggerGenOptions>, ConfigureSwaggerOptions>());
 
         return services;

@@ -85,7 +85,7 @@ public sealed class AdminShopController : BaseApiController
     [ProducesResponseType(typeof(StorageCompileJobDto), StatusCodes.Status202Accepted)]
     [SwaggerOperation(Summary = "Uploader le projet Blender (.blend) de la PLV — compilation .glb asynchrone")]
     public async Task<ActionResult<StorageCompileJobDto>> UploadPlvModel(
-        IFormFile file, CancellationToken ct = default)
+        [FromForm] IFormFile file, CancellationToken ct = default)
     {
         if (file is null || file.Length == 0)
             return BadRequest(new { message = "Fichier .blend manquant ou vide." });
@@ -110,7 +110,7 @@ public sealed class AdminShopController : BaseApiController
     [HttpGet("products")]
     [RequirePermission(Permissions.ShopRead)]
     [ProducesResponseType(typeof(PagedResult<ShopProductDto>), StatusCodes.Status200OK)]
-    [SwaggerOperation(Summary = "List shop products (paged + filters)")]
+    [SwaggerOperation(Summary = "List shop products (paged + filters)", OperationId = "AdminShop_GetProducts")]
     public async Task<ActionResult<PagedResult<ShopProductDto>>> GetProducts(
         [FromQuery] string? type,
         [FromQuery] bool? isAvailable,

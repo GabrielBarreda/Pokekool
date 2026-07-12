@@ -11,10 +11,16 @@ internal static class StorageMapper
 
     public static StorageBoxDto ToDto(StorageBox b) => new(
         b.Id, b.RoomId, b.LabelOrigin.ToString(), b.Barcode, b.InternalCode,
-        b.SupplierName, b.Size, b.Position3dJson, b.Notes, b.CreatedAt, b.UpdatedAt);
+        b.SupplierName, b.Size, b.Position3dJson, b.Notes, b.FurnitureId, b.LevelIndex,
+        b.CreatedAt, b.UpdatedAt);
 
     public static StorageBinderDto ToDto(StorageBinder b) => new(
-        b.Id, b.BoxId, b.Label, b.PositionInBox, b.CreatedAt, b.UpdatedAt);
+        b.Id, b.BoxId, b.Label, b.PositionInBox, b.FurnitureId, b.LevelIndex,
+        b.CreatedAt, b.UpdatedAt);
+
+    public static StorageFurnitureDto ToDto(StorageFurniture f) => new(
+        f.Id, f.RoomId, f.Type.ToString(), f.Name, f.LevelCount,
+        f.Position3dJson, f.Notes, f.CreatedAt, f.UpdatedAt);
 
     public static StorageLocationDto ToDto(StorageLocation l) => new(
         l.Id, l.BinderId, l.OwnerType, l.OwnerId, l.SlotPosition, l.MovedAt);

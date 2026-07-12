@@ -5,7 +5,9 @@ import { environment } from '@env/environment';
 import {
   StorageRoomDto, StorageRoomLayoutDto, StorageBoxDto, StorageBinderDto,
   StorageLocationDto, StorageBoxLookupDto, StorageMovementEventDto, StorageCompileJobDto,
+  StorageFurnitureDto,
   CreateStorageRoomRequest, CreateStorageBoxRequest, CreateStorageBinderRequest,
+  CreateStorageFurnitureRequest,
 } from './storage.models';
 
 @Injectable({ providedIn: 'root' })
@@ -54,6 +56,37 @@ export class StorageService {
   }
   createBinder(body: CreateStorageBinderRequest): Observable<StorageBinderDto> {
     return this.http.post<StorageBinderDto>(`${this.base}/binders`, body);
+  }
+  placeBinder(
+    binderId: string,
+    p: { boxId?: string | null; positionInBox?: number | null; furnitureId?: string | null; levelIndex?: number | null },
+  ): Observable<StorageBinderDto> {
+    return this.http.patch<StorageBinderDto>(`${this.base}/binders/${binderId}/placement`, {
+      boxId: p.boxId ?? null, positionInBox: p.positionInBox ?? null,
+      furnitureId: p.furnitureId ?? null, levelIndex: p.levelIndex ?? null,
+    });
+  }
+
+  // ── Meubles ────────────────────────────────────────────
+  createFurniture(body: CreateStorageFurnitureRequest): Observable<StorageFurnitureDto> {
+    return this.http.post<StorageFurnitureDto>(`${this.base}/furniture`, body);
+  }
+  updateFurniturePosition(id: string, position3dJson: string | null): Observable<StorageFurnitureDto> {
+    return this.http.patch<StorageFurnitureDto>(`${this.base}/furniture/${id}/position`, { position3dJson });
+  }
+  deleteFurniture(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/furniture/${id}`);
+  }
+
+  // ── Rangement carton (sol OU meuble/niveau) ────────────
+  placeBox(
+    boxId: string,
+    p: { furnitureId?: string | null; levelIndex?: number | null; position3dJson?: string | null },
+  ): Observable<StorageBoxDto> {
+    return this.http.patch<StorageBoxDto>(`${this.base}/boxes/${boxId}/placement`, {
+      furnitureId: p.furnitureId ?? null, levelIndex: p.levelIndex ?? null,
+      position3dJson: p.position3dJson ?? null,
+    });
   }
 
   // ── Localisations ──────────────────────────────────────

@@ -110,6 +110,8 @@ public static class DependencyInjection
             Pokekool.Infrastructure.Persistence.Repositories.Storage.StorageMovementEventRepository>();
         services.AddScoped<Pokekool.Domain.Repositories.Storage.IStorageModelCompileJobRepository,
             Pokekool.Infrastructure.Persistence.Repositories.Storage.StorageModelCompileJobRepository>();
+        services.AddScoped<Pokekool.Domain.Repositories.Storage.IStorageFurnitureRepository,
+            Pokekool.Infrastructure.Persistence.Repositories.Storage.StorageFurnitureRepository>();
 
         // Pipeline Blender (.blend → .glb)
         services.Configure<Pokekool.Infrastructure.Options.BlenderOptions>(

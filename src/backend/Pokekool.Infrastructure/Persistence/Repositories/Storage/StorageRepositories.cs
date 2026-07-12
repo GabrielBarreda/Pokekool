@@ -40,6 +40,9 @@ internal sealed class StorageBoxRepository : IStorageBoxRepository
         => _db.StorageBoxes.FirstOrDefaultAsync(
             b => b.Barcode == code || b.InternalCode == code, ct);
 
+    public async Task<IReadOnlyList<StorageBox>> ListByFurnitureAsync(Guid furnitureId, CancellationToken ct = default)
+        => await _db.StorageBoxes.Where(b => b.FurnitureId == furnitureId).ToListAsync(ct);
+
     public async Task AddAsync(StorageBox box, CancellationToken ct = default)
         => await _db.StorageBoxes.AddAsync(box, ct);
 }
@@ -60,9 +63,13 @@ internal sealed class StorageBinderRepository : IStorageBinderRepository
         IReadOnlyList<Guid> boxIds, CancellationToken ct = default)
     {
         if (boxIds.Count == 0) return Array.Empty<StorageBinder>();
-        return await _db.StorageBinders.Where(b => boxIds.Contains(b.BoxId))
+        return await _db.StorageBinders.Where(b => b.BoxId != null && boxIds.Contains(b.BoxId.Value))
             .OrderBy(b => b.PositionInBox).ThenBy(b => b.Label).ToListAsync(ct);
     }
+
+    public async Task<IReadOnlyList<StorageBinder>> ListByFurnitureAsync(Guid furnitureId, CancellationToken ct = default)
+        => await _db.StorageBinders.Where(b => b.FurnitureId == furnitureId)
+            .OrderBy(b => b.Label).ToListAsync(ct);
 
     public async Task AddAsync(StorageBinder binder, CancellationToken ct = default)
         => await _db.StorageBinders.AddAsync(binder, ct);
@@ -116,4 +123,22 @@ internal sealed class StorageModelCompileJobRepository : IStorageModelCompileJob
 
     public async Task AddAsync(StorageModelCompileJob job, CancellationToken ct = default)
         => await _db.StorageModelCompileJobs.AddAsync(job, ct);
+}
+
+internal sealed class StorageFurnitureRepository : IStorageFurnitureRepository
+{
+    private readonly PokekoolDbContext _db;
+    public StorageFurnitureRepository(PokekoolDbContext db) => _db = db;
+
+    public Task<StorageFurniture?> GetByIdAsync(Guid id, CancellationToken ct = default)
+        => _db.StorageFurnitures.FirstOrDefaultAsync(f => f.Id == id, ct);
+
+    public async Task<IReadOnlyList<StorageFurniture>> ListByRoomAsync(Guid roomId, CancellationToken ct = default)
+        => await _db.StorageFurnitures.Where(f => f.RoomId == roomId)
+            .OrderBy(f => f.CreatedAt).ToListAsync(ct);
+
+    public async Task AddAsync(StorageFurniture furniture, CancellationToken ct = default)
+        => await _db.StorageFurnitures.AddAsync(furniture, ct);
+
+    public void Remove(StorageFurniture furniture) => _db.StorageFurnitures.Remove(furniture);
 }

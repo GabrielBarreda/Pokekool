@@ -1101,7 +1101,7 @@ namespace Pokekool.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid>("BoxId")
+                    b.Property<Guid?>("BoxId")
                         .HasColumnType("uuid")
                         .HasColumnName("box_id");
 
@@ -1109,11 +1109,19 @@ namespace Pokekool.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<Guid?>("FurnitureId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("furniture_id");
+
                     b.Property<string>("Label")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("label");
+
+                    b.Property<short?>("LevelIndex")
+                        .HasColumnType("smallint")
+                        .HasColumnName("level_index");
 
                     b.Property<short?>("PositionInBox")
                         .HasColumnType("smallint")
@@ -1127,6 +1135,9 @@ namespace Pokekool.Infrastructure.Migrations
 
                     b.HasIndex("BoxId")
                         .HasDatabaseName("ix_storage_binder_box_id");
+
+                    b.HasIndex("FurnitureId")
+                        .HasDatabaseName("ix_storage_binder_furniture_id");
 
                     b.ToTable("storage_binder", (string)null);
                 });
@@ -1147,6 +1158,10 @@ namespace Pokekool.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<Guid?>("FurnitureId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("furniture_id");
+
                     b.Property<string>("InternalCode")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)")
@@ -1157,6 +1172,10 @@ namespace Pokekool.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("label_origin");
+
+                    b.Property<short?>("LevelIndex")
+                        .HasColumnType("smallint")
+                        .HasColumnName("level_index");
 
                     b.Property<string>("Notes")
                         .HasColumnType("text")
@@ -1191,6 +1210,9 @@ namespace Pokekool.Infrastructure.Migrations
                         .HasDatabaseName("ux_storage_box_barcode")
                         .HasFilter("barcode IS NOT NULL");
 
+                    b.HasIndex("FurnitureId")
+                        .HasDatabaseName("ix_storage_box_furniture_id");
+
                     b.HasIndex("InternalCode")
                         .IsUnique()
                         .HasDatabaseName("ux_storage_box_internal_code")
@@ -1200,6 +1222,52 @@ namespace Pokekool.Infrastructure.Migrations
                         .HasDatabaseName("ix_storage_box_room_id");
 
                     b.ToTable("storage_box", (string)null);
+                });
+
+            modelBuilder.Entity("Pokekool.Domain.Entities.Storage.StorageFurniture", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("Position3dJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("position_3d");
+
+                    b.Property<Guid>("RoomId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("room_id");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("type");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoomId")
+                        .HasDatabaseName("ix_storage_furniture_room_id");
+
+                    b.ToTable("storage_furniture", (string)null);
                 });
 
             modelBuilder.Entity("Pokekool.Domain.Entities.Storage.StorageLocation", b =>
@@ -1664,11 +1732,29 @@ namespace Pokekool.Infrastructure.Migrations
                     b.HasOne("Pokekool.Domain.Entities.Storage.StorageBox", null)
                         .WithMany()
                         .HasForeignKey("BoxId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Pokekool.Domain.Entities.Storage.StorageFurniture", null)
+                        .WithMany()
+                        .HasForeignKey("FurnitureId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("Pokekool.Domain.Entities.Storage.StorageBox", b =>
+                {
+                    b.HasOne("Pokekool.Domain.Entities.Storage.StorageFurniture", null)
+                        .WithMany()
+                        .HasForeignKey("FurnitureId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Pokekool.Domain.Entities.Storage.StorageRoom", null)
+                        .WithMany()
+                        .HasForeignKey("RoomId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Pokekool.Domain.Entities.Storage.StorageBox", b =>
+            modelBuilder.Entity("Pokekool.Domain.Entities.Storage.StorageFurniture", b =>
                 {
                     b.HasOne("Pokekool.Domain.Entities.Storage.StorageRoom", null)
                         .WithMany()
