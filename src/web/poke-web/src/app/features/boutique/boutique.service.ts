@@ -8,7 +8,7 @@ import {
   ShopStockDto, ShopStockRequest, StockFilters,
   ShopAppointmentDto, UpdateAppointmentRequest, AppointmentFilters,
   AppointmentStatus, PagedResult, CardSummary,
-  PlvCompileJobDto, ShopPlvModel,
+  PlvCompileJobDto, ShopPlvModel, ProductInterest,
 } from './boutique.models';
 
 @Injectable({ providedIn: 'root' })
@@ -56,6 +56,9 @@ export class BoutiqueService {
   }
   toggleAvailability(id: string, isAvailable: boolean): Observable<ShopProductDto> {
     return this.http.patch<ShopProductDto>(`${this.base}/products/${id}/availability`, { isAvailable });
+  }
+  getProductInterest(id: string): Observable<ProductInterest> {
+    return this.http.get<ProductInterest>(`${this.base}/products/${id}/interest`);
   }
 
   // ── Stock ──────────────────────────────────────────────

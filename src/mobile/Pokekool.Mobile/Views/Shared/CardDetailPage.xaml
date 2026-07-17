@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ContentPage
+    x:Class="Pokekool.Mobile.Views.Shared.CardDetailPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Pokekool.Mobile.ViewModels"
+    x:DataType="vm:CardDetailViewModel"
+    Title="{Binding Card.Name}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="12">
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+            <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource ColorSemanticDanger}"
+                   IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
+
+            <Image Source="{Binding Card.ImageLarge}" HeightRequest="320" Aspect="AspectFit" />
+
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="4">
+                    <Label FontAttributes="Bold" FontSize="18">
+                        <Label.Text>
+                            <MultiBinding StringFormat="{}{0} · #{1}">
+                                <Binding Path="Card.Name" />
+                                <Binding Path="Card.Number" />
+                            </MultiBinding>
+                        </Label.Text>
+                    </Label>
+                    <Label Text="{Binding Card.SetName}" Style="{StaticResource SubtleLabel}" />
+                    <Label Text="{Binding Card.Rarity}" Style="{StaticResource SubtleLabel}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Text="Populations &amp; prix gradés" Style="{StaticResource TitleLabel}" FontSize="17" />
+
+            <CollectionView ItemsSource="{Binding GradingRows}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:GradingRow">
+                        <Grid ColumnDefinitions="70,*,Auto,Auto" Padding="4" ColumnSpacing="8">
+                            <Label Grid.Column="0" Text="{Binding Company}" FontAttributes="Bold" />
+                            <Label Grid.Column="1" Text="{Binding Grade}" />
+                            <Label Grid.Column="2" Text="{Binding Price}" />
+                            <Label Grid.Column="3" Text="{Binding Population}" Style="{StaticResource SubtleLabel}" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+                <CollectionView.EmptyView>
+                    <Label Text="Aucune donnée de gradation disponible." Style="{StaticResource SubtleLabel}" />
+                </CollectionView.EmptyView>
+            </CollectionView>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -3,9 +3,12 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Pokekool.API.Authorization;
+using Pokekool.Application.Collection.Commands.ScanCollection;
 using Pokekool.Application.Storage.Commands;
 using Pokekool.Application.Storage.Queries;
+using Pokekool.Application.Storage.Settings;
 using Pokekool.Shared.Constants;
+using Pokekool.Shared.Dtos.Collection;
 using Pokekool.Shared.Dtos.Storage;
 using Pokekool.Shared.Requests.Storage;
 using Swashbuckle.AspNetCore.Annotations;
@@ -50,6 +53,16 @@ public sealed class AdminStorageController : BaseApiController
         return CreatedAtAction(nameof(GetRoomLayout), new { id = room.Id, version = "1.0" }, room);
     }
 
+    [HttpDelete("rooms/{id:guid}")]
+    [RequirePermission(Permissions.StorageWrite)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [SwaggerOperation(Summary = "Supprimer une salle (et tout son contenu : meubles, cartons, classeurs)")]
+    public async Task<IActionResult> DeleteRoom(Guid id, CancellationToken ct = default)
+    {
+        await _mediator.Send(new DeleteStorageRoomCommand(id), ct);
+        return NoContent();
+    }
+
     [HttpGet("rooms/{id:guid}/layout")]
     [RequirePermission(Permissions.StorageRead)]
     [ProducesResponseType(typeof(StorageRoomLayoutDto), StatusCodes.Status200OK)]
@@ -57,6 +70,28 @@ public sealed class AdminStorageController : BaseApiController
     public async Task<ActionResult<StorageRoomLayoutDto>> GetRoomLayout(
         Guid id, CancellationToken ct = default)
         => Ok(await _mediator.Send(new GetRoomLayoutQuery(id), ct));
+
+    // ============================================================
+    // PARAMÈTRES DU MODULE (onglet Paramètres › Stockage)
+    // ============================================================
+
+    [HttpGet("settings")]
+    [RequirePermission(Permissions.StorageRead)]
+    [ProducesResponseType(typeof(StorageSettingsDto), StatusCodes.Status200OK)]
+    [SwaggerOperation(Summary = "Paramètres du module Stockage (ex. suppression en chaîne)")]
+    public async Task<ActionResult<StorageSettingsDto>> GetSettings(CancellationToken ct = default)
+        => Ok(await _mediator.Send(new GetStorageSettingsQuery(), ct));
+
+    [HttpPut("settings")]
+    [RequirePermission(Permissions.StorageWrite)]
+    [ProducesResponseType(typeof(StorageSettingsDto), StatusCodes.Status200OK)]
+    [SwaggerOperation(Summary = "Mettre à jour les paramètres du module Stockage")]
+    public async Task<ActionResult<StorageSettingsDto>> UpdateSettings(
+        [FromBody] UpdateStorageSettingsRequest body, CancellationToken ct = default)
+    {
+        await _mediator.Send(new UpdateStorageSettingsCommand(body.CascadeDelete), ct);
+        return Ok(await _mediator.Send(new GetStorageSettingsQuery(), ct));
+    }
 
     // ============================================================
     // MODÈLE 3D — upload .blend + compilation Blender asynchrone
@@ -114,6 +149,16 @@ public sealed class AdminStorageController : BaseApiController
         return StatusCode(StatusCodes.Status201Created, box);
     }
 
+    [HttpDelete("boxes/{id:guid}")]
+    [RequirePermission(Permissions.StorageWrite)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [SwaggerOperation(Summary = "Supprimer un carton (et par cascade ses classeurs et leurs localisations)")]
+    public async Task<IActionResult> DeleteBox(Guid id, CancellationToken ct = default)
+    {
+        await _mediator.Send(new DeleteStorageBoxCommand(id), ct);
+        return NoContent();
+    }
+
     [HttpPatch("boxes/{id:guid}/position")]
     [RequirePermission(Permissions.StorageWrite)]
     [ProducesResponseType(typeof(StorageBoxDto), StatusCodes.Status200OK)]
@@ -145,6 +190,30 @@ public sealed class AdminStorageController : BaseApiController
             body.Label, body.BoxId, body.PositionInBox, body.FurnitureId, body.LevelIndex), ct);
         return StatusCode(StatusCodes.Status201Created, binder);
     }
+
+    [HttpGet("estimate")]
+    [RequirePermission(Permissions.StorageRead)]
+    [ProducesResponseType(typeof(StorageEstimateDto), StatusCodes.Status200OK)]
+    [SwaggerOperation(Summary = "Valeur estimée d'un carton/classeur (somme des cotes des cartes rangées)")]
+    public async Task<ActionResult<StorageEstimateDto>> GetEstimate(
+        [FromQuery] string ownerType, [FromQuery] Guid ownerId, CancellationToken ct = default)
+        => Ok(await _mediator.Send(new GetStorageEstimateQuery(ownerType, ownerId), ct));
+
+    [HttpGet("card-detail")]
+    [RequirePermission(Permissions.StorageRead)]
+    [ProducesResponseType(typeof(StorageCardDetailDto), StatusCodes.Status200OK)]
+    [SwaggerOperation(Summary = "Détail comptoir d'une carte en stock (grade, prix estimé, valeurs récentes)")]
+    public async Task<ActionResult<StorageCardDetailDto>> GetCardDetail(
+        [FromQuery] string ownerType, [FromQuery] Guid ownerId, CancellationToken ct = default)
+        => Ok(await _mediator.Send(new GetStockCardDetailQuery(ownerType, ownerId), ct));
+
+    [HttpGet("binders/{id:guid}/cards")]
+    [RequirePermission(Permissions.StorageRead)]
+    [ProducesResponseType(typeof(IReadOnlyList<StorageBinderCardDto>), StatusCodes.Status200OK)]
+    [SwaggerOperation(Summary = "Cartes rangées dans un classeur (pour la vue classeur)")]
+    public async Task<ActionResult<IReadOnlyList<StorageBinderCardDto>>> GetBinderCards(
+        Guid id, CancellationToken ct = default)
+        => Ok(await _mediator.Send(new GetBinderCardsQuery(id), ct));
 
     [HttpPatch("binders/{id:guid}/placement")]
     [RequirePermission(Permissions.StorageWrite)]
@@ -215,6 +284,55 @@ public sealed class AdminStorageController : BaseApiController
         var location = await _mediator.Send(new AssignStorageLocationCommand(
             body.BinderId, body.OwnerType, body.OwnerId, body.SlotPosition), ct);
         return StatusCode(StatusCodes.Status201Created, location);
+    }
+
+    [HttpPost("binders/{id:guid}/assign")]
+    [RequirePermission(Permissions.StorageWrite)]
+    [ProducesResponseType(typeof(IReadOnlyList<StorageLocationDto>), StatusCodes.Status201Created)]
+    [SwaggerOperation(Summary = "Assigner en lot des articles du stock boutique à un classeur")]
+    public async Task<ActionResult<IReadOnlyList<StorageLocationDto>>> BatchAssign(
+        Guid id, [FromBody] BatchAssignBinderRequest body, CancellationToken ct = default)
+    {
+        var locations = await _mediator.Send(
+            new BatchAssignStorageLocationCommand(id, "shop_stock", body.OwnerIds), ct);
+        return StatusCode(StatusCodes.Status201Created, locations);
+    }
+
+    // ============================================================
+    // SCAN CLASSEUR DOUBLE PAGE (réutilise pipeline vision collection)
+    // ============================================================
+
+    [HttpPost("scan-binder")]
+    [RequirePermission(Permissions.StorageWrite)]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(20_000_000)]
+    [ProducesResponseType(typeof(ScanCollectionResult), StatusCodes.Status200OK)]
+    [SwaggerOperation(Summary = "Scanner une double page de classeur via vision LLM (réutilise pipeline scan collection)")]
+    public async Task<ActionResult<ScanCollectionResult>> ScanBinder(
+        IFormFile image, CancellationToken ct = default)
+    {
+        if (image is null || image.Length == 0)
+            return BadRequest(new { message = "Image manquante ou vide." });
+
+        await using var stream = image.OpenReadStream();
+        var buffer = new byte[stream.Length];
+        _ = await stream.ReadAsync(buffer, ct);
+        var base64 = Convert.ToBase64String(buffer);
+
+        var result = await _mediator.Send(new ScanCollectionCommand(base64), ct);
+        return Ok(result);
+    }
+
+    [HttpPost("create-from-scan")]
+    [RequirePermission(Permissions.StorageWrite)]
+    [ProducesResponseType(typeof(IReadOnlyList<StorageLocationDto>), StatusCodes.Status201Created)]
+    [SwaggerOperation(Summary = "Créer les ShopStock + StorageLocation depuis un scan classeur validé")]
+    public async Task<ActionResult<IReadOnlyList<StorageLocationDto>>> CreateFromScan(
+        [FromBody] CreateFromScanRequest body, CancellationToken ct = default)
+    {
+        var locations = await _mediator.Send(
+            new CreateBinderFromScanCommand(body.BinderId, body.ValidatedOwnerIds), ct);
+        return StatusCode(StatusCodes.Status201Created, locations);
     }
 
     // ============================================================

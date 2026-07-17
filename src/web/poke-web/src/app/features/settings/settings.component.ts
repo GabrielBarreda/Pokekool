@@ -7,8 +7,9 @@ import { PageHeaderComponent } from '@shared/ui/page-header/page-header.componen
 import { AppearanceSettingsComponent } from './appearance/appearance-settings.component';
 import { ProviderSettingsComponent } from './providers/provider-settings.component';
 import { ProviderFreeSettingsComponent } from './providers/provider-free-settings.component';
+import { StorageSettingsComponent } from './storage/storage-settings.component';
 
-type Section = 'appearance' | 'providers-free' | 'providers';
+type Section = 'appearance' | 'providers-free' | 'providers' | 'storage';
 
 interface NavItem {
   id: Section;
@@ -20,6 +21,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'appearance',     label: 'Apparence',       icon: '🎨' },
   { id: 'providers-free', label: 'Providers Free',  icon: '🆓' },
   { id: 'providers',      label: 'Providers',        icon: '🔌' },
+  { id: 'storage',        label: 'Stockage',         icon: '🗃️' },
 ];
 
 @Component({
@@ -31,6 +33,7 @@ const NAV_ITEMS: NavItem[] = [
     AppearanceSettingsComponent,
     ProviderSettingsComponent,
     ProviderFreeSettingsComponent,
+    StorageSettingsComponent,
   ],
   template: `
     <div class="settings-page" [class.settings-page--wide]="activeSection() === 'providers-free'">
@@ -65,6 +68,9 @@ const NAV_ITEMS: NavItem[] = [
           }
           @if (activeSection() === 'providers') {
             <app-provider-settings />
+          }
+          @if (activeSection() === 'storage') {
+            <app-storage-settings />
           }
         </div>
       </div>

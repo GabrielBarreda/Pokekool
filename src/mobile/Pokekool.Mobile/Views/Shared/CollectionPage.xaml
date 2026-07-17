@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ContentPage
+    x:Class="Pokekool.Mobile.Views.Shared.CollectionPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Pokekool.Mobile.ViewModels"
+    x:DataType="vm:CollectionViewModel"
+    Title="Ma collection">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="12" RowSpacing="8">
+
+        <Border Grid.Row="0" Style="{StaticResource Card}">
+            <VerticalStackLayout Spacing="2">
+                <Label Text="{Binding ValueSummary}" FontAttributes="Bold" FontSize="16" />
+                <Label Text="{Binding StatsSummary}" Style="{StaticResource SubtleLabel}" />
+            </VerticalStackLayout>
+        </Border>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+            <SearchBar Grid.Column="0" Placeholder="Rechercher…" Text="{Binding Search}"
+                       SearchCommand="{Binding RefreshCommand}" />
+            <HorizontalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
+                <CheckBox IsChecked="{Binding OwnedOnly}" />
+                <Label Text="Possédées" VerticalOptions="Center" FontSize="12" />
+            </HorizontalStackLayout>
+            <HorizontalStackLayout Grid.Column="2" Spacing="4" VerticalOptions="Center">
+                <CheckBox IsChecked="{Binding FavoritesOnly}" />
+                <Label Text="Favoris" VerticalOptions="Center" FontSize="12" />
+            </HorizontalStackLayout>
+        </Grid>
+
+        <Label Grid.Row="2" Text="{Binding ErrorMessage}" TextColor="{StaticResource ColorSemanticDanger}"
+               IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
+
+        <RefreshView Grid.Row="3" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+            <CollectionView ItemsSource="{Binding Cards}"
+                            RemainingItemsThreshold="10"
+                            RemainingItemsThresholdReachedCommand="{Binding LoadMoreCommand}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:CollectionCardItem">
+                        <Border Style="{StaticResource Card}" Margin="0,4">
+                            <Grid ColumnDefinitions="56,*,Auto" ColumnSpacing="10">
+                                <Image Grid.Column="0" Source="{Binding Image}" HeightRequest="72" Aspect="AspectFit" />
+                                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                                    <Label Text="{Binding DisplayName}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                    <Label Text="{Binding SetLabel}" Style="{StaticResource SubtleLabel}" />
+                                </VerticalStackLayout>
+                                <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center">
+                                    <Button Text="✓" FontSize="14" HeightRequest="34" WidthRequest="44" Padding="0"
+                                            BackgroundColor="{StaticResource ColorNeutral300}"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:CollectionViewModel}}, Path=ToggleOwnedCommand}"
+                                            CommandParameter="{Binding .}">
+                                        <Button.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding IsOwned}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{StaticResource ColorSemanticSuccess}" />
+                                            </DataTrigger>
+                                        </Button.Triggers>
+                                    </Button>
+                                    <Button Text="♥" FontSize="14" HeightRequest="34" WidthRequest="44" Padding="0"
+                                            BackgroundColor="{StaticResource ColorNeutral300}"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:CollectionViewModel}}, Path=ToggleFavoriteCommand}"
+                                            CommandParameter="{Binding .}">
+                                        <Button.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding IsFavorite}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{StaticResource ColorSemanticDanger}" />
+                                            </DataTrigger>
+                                        </Button.Triggers>
+                                    </Button>
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+                <CollectionView.EmptyView>
+                    <Label Text="Aucune carte — tirez pour rafraîchir." HorizontalOptions="Center" Margin="0,40"
+                           Style="{StaticResource SubtleLabel}" />
+                </CollectionView.EmptyView>
+            </CollectionView>
+        </RefreshView>
+    </Grid>
+</ContentPage>

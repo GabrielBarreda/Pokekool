@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ContentPage
+    x:Class="Pokekool.Mobile.Views.Admin.StoragePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Pokekool.Mobile.ViewModels"
+    xmlns:dto="clr-namespace:Pokekool.Shared.Dtos.Storage;assembly=Pokekool.Shared"
+    x:DataType="vm:StorageViewModel"
+    Title="Stockage">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="12" Spacing="12">
+
+            <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource ColorSemanticDanger}"
+                   IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
+
+            <!-- Lookup par code -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Recherche carton" FontAttributes="Bold" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Entry Grid.Column="0" Placeholder="Code-barre ou code interne"
+                               Text="{Binding LookupCode}" />
+                        <Button Grid.Column="1" Text="🔎" WidthRequest="52"
+                                Command="{Binding LookupCommand}" />
+                    </Grid>
+                    <Label Text="{Binding LookupResult}"
+                           IsVisible="{Binding LookupResult, Converter={StaticResource IsNotNullConverter}}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Déplacements en attente -->
+            <Label Text="Déplacements à confirmer" FontAttributes="Bold" />
+            <CollectionView ItemsSource="{Binding PendingMovements}" HeightRequest="200">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="dto:StorageMovementEventDto">
+                        <Border Style="{StaticResource Card}" Margin="0,4">
+                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                <Label Grid.Column="0" VerticalOptions="Center"
+                                       Text="{Binding DetectedAt, StringFormat='Détecté le {0:g}'}" />
+                                <Button Grid.Column="1" Text="✓" WidthRequest="46" HeightRequest="36" Padding="0"
+                                        BackgroundColor="{StaticResource ColorSemanticSuccess}"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:StorageViewModel}}, Path=ConfirmMovementCommand}"
+                                        CommandParameter="{Binding .}" />
+                                <Button Grid.Column="2" Text="✕" WidthRequest="46" HeightRequest="36" Padding="0"
+                                        Style="{StaticResource DangerButton}"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:StorageViewModel}}, Path=RejectMovementCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+                <CollectionView.EmptyView>
+                    <Label Text="Aucun déplacement en attente." Style="{StaticResource SubtleLabel}" />
+                </CollectionView.EmptyView>
+            </CollectionView>
+
+            <!-- Salles → cartons -->
+            <Label Text="Salles" FontAttributes="Bold" />
+            <CollectionView ItemsSource="{Binding Rooms}" HeightRequest="120" ItemsLayout="HorizontalList">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="dto:StorageRoomDto">
+                        <Border Style="{StaticResource Card}" Margin="0,0,8,0" Padding="16,10">
+                            <Label Text="{Binding Name}" VerticalOptions="Center" />
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:StorageViewModel}}, Path=SelectRoomCommand}"
+                                    CommandParameter="{Binding .}" />
+                            </Border.GestureRecognizers>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <Label Text="{Binding SelectedRoom.Name, StringFormat='Cartons — {0}'}" FontAttributes="Bold"
+                   IsVisible="{Binding SelectedRoom, Converter={StaticResource IsNotNullConverter}}" />
+            <CollectionView ItemsSource="{Binding Boxes}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="dto:StorageBoxDto">
+                        <Border Style="{StaticResource Card}" Margin="0,4">
+                            <VerticalStackLayout Spacing="2">
+                                <Label Text="{Binding LabelOrigin}" FontAttributes="Bold" />
+                                <Label Style="{StaticResource SubtleLabel}">
+                                    <Label.Text>
+                                        <MultiBinding Converter="{StaticResource FirstNotEmptyConverter}">
+                                            <Binding Path="InternalCode" />
+                                            <Binding Path="Barcode" />
+                                        </MultiBinding>
+                                    </Label.Text>
+                                </Label>
+                            </VerticalStackLayout>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

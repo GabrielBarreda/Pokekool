@@ -96,6 +96,12 @@ export interface ShopPlvModel {
   plvModel3dUrl: string | null;
 }
 
+/** Nombre de clients intéressés (demandes d'achat actives) par un article. */
+export interface ProductInterest {
+  productId: string;
+  interestedCount: number;
+}
+
 export interface UpdateShopInfoRequest {
   name: string;
   description: string | null;

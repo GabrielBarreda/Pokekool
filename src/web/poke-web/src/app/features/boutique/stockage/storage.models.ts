@@ -71,6 +71,12 @@ export interface FurnitureFloorDropEvent {
   z: number;
 }
 
+/** Payload émis quand un classeur est déposé sur un carton (rangé dedans). */
+export interface BinderBoxDropEvent {
+  binderId: string;
+  boxId: string;
+}
+
 // ── DTOs ────────────────────────────────────────────────────────────────────
 export interface StorageRoomDto {
   id: string;
@@ -107,6 +113,44 @@ export interface StorageBinderDto {
   levelIndex: number | null;
   createdAt: string;
   updatedAt: string | null;
+}
+
+export interface StoragePricePointDto {
+  source: string;
+  price: number;
+  currency: string;
+  fetchedAt: string;
+}
+
+export interface StorageCardDetailDto {
+  cardId: string | null;
+  name: string;
+  setName: string | null;
+  imageSmall: string | null;
+  imageLarge: string | null;
+  type: string;
+  condition: string | null;
+  gradingCompany: string | null;
+  gradeValue: number | null;
+  estimatedPrice: number | null;
+  estimatedCurrency: string | null;
+  quantityAvailable: number;
+  recentPrices: StoragePricePointDto[];
+}
+
+export interface StorageBinderCardDto {
+  locationId: string;
+  ownerType: string;
+  ownerId: string;
+  cardId: string | null;
+  name: string;
+  imageSmall: string | null;
+  imageLarge: string | null;
+  setName: string | null;
+  condition: string | null;
+  gradingCompany: string | null;
+  gradeValue: number | null;
+  slotPosition: number;
 }
 
 export interface StorageFurnitureDto {
@@ -175,6 +219,67 @@ export interface StorageCompileJobDto {
   completedAt: string | null;
 }
 
+// ── Shop Stock (pour popup assignation) ──────────────────────────────────────
+export interface ShopStockDto {
+  id: string;
+  shopId: string;
+  cardId: string | null;
+  cardName: string | null;
+  cardImage: string | null;
+  productName: string | null;
+  type: string;
+  language: string;
+  condition: string | null;
+  gradingCompany: string | null;
+  gradeValue: number | null;
+  quantityTotal: number;
+  quantityAvailable: number;
+  quantityReserved: number;
+  purchasePrice: number | null;
+  purchaseCurrency: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface PagedResult<T> {
+  items: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+// ── Scan classeur ─────────────────────────────────────────────────────────────
+export interface CardScanMatchDto {
+  cardId: string | null;
+  cardName: string | null;
+  setName: string | null;
+  cardNumber: string | null;
+  imageSmall: string | null;
+  gradingCompany: string | null;
+  gradeValue: number | null;
+  certNumber: string | null;
+  confidence: number;
+  matched: boolean;
+}
+
+export interface ScanBinderResult {
+  matches: CardScanMatchDto[];
+}
+
+// ── Paramètres module Stockage ───────────────────────────────────────────────
+export interface StorageSettingsDto {
+  /** Suppression en chaîne (cascade) activée. */
+  cascadeDelete: boolean;
+}
+
+/** Valeur estimée d'un carton/classeur (somme des cotes des cartes rangées). */
+export interface StorageEstimateDto {
+  total: number | null;
+  currency: string | null;
+  itemCount: number;
+}
+
 // ── Requests ─────────────────────────────────────────────────────────────────
 export interface CreateStorageRoomRequest {
   name: string;
@@ -203,6 +308,25 @@ export interface CreateStorageFurnitureRequest {
   roomId: string;
   type: FurnitureType;
   name: string | null;
+}
+
+/** Modèle d'affichage du popup récapitulatif d'un objet sélectionné (carton/meuble/classeur). */
+export interface StorageRecapModel {
+  kind: 'box' | 'furniture' | 'binder';
+  /** Identifiant de l'objet (pour les actions Ouvrir / Supprimer). */
+  id: string;
+  /** Libellé principal (code carton, nom meuble, libellé classeur). */
+  title: string;
+  /** Type lisible (« Carton fournisseur », « Étagère 6 niveaux », « Classeur »). */
+  subtitle: string;
+  /** Contenance lisible (« 3 classeurs », « 6 niveaux », « position 4 »). */
+  contenance: string;
+  /** Prix estimé formaté, ou null si indisponible (agrégat backend à venir). */
+  estimatedPrice: string | null;
+  /** Code-barre affiché uniquement pour un carton fournisseur. */
+  barcode: string | null;
+  /** Indique si l'objet est placé dans la salle. */
+  placed: boolean;
 }
 
 /** Position 3D d'un carton/meuble persistée en JSON. */

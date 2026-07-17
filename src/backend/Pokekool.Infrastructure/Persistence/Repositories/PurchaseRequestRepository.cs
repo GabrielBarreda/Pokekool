@@ -16,6 +16,11 @@ internal sealed class PurchaseRequestRepository : IPurchaseRequestRepository
     public Task<PurchaseRequest?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => _db.Set<PurchaseRequest>().FirstOrDefaultAsync(pr => pr.Id == id, ct);
 
+    public Task<int> CountActiveByProductAsync(Guid shopProductId, CancellationToken ct = default)
+        => _db.Set<PurchaseRequest>().AsNoTracking()
+            .CountAsync(pr => pr.ShopProductId == shopProductId
+                && (pr.Status == PurchaseRequestStatus.Pending || pr.Status == PurchaseRequestStatus.Contacted), ct);
+
     public async Task<(IReadOnlyList<PurchaseRequestProjection> Items, long TotalCount)> GetPagedAsync(
         PurchaseRequestStatus? status,
         int page,

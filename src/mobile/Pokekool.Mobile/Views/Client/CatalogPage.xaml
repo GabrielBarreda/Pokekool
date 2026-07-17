@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ContentPage
+    x:Class="Pokekool.Mobile.Views.Client.CatalogPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Pokekool.Mobile.ViewModels"
+    xmlns:dto="clr-namespace:Pokekool.Shared.Dtos.Shop;assembly=Pokekool.Shared"
+    x:DataType="vm:CatalogViewModel"
+    Title="Boutique">
+
+    <Grid RowDefinitions="Auto,Auto,*" Padding="12" RowSpacing="8">
+        <SearchBar Grid.Row="0" Placeholder="Rechercher…" Text="{Binding Search}"
+                   SearchCommand="{Binding RefreshCommand}" />
+        <Label Grid.Row="1" Text="{Binding ErrorMessage}" TextColor="{StaticResource ColorSemanticDanger}"
+               IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
+
+        <RefreshView Grid.Row="2" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+            <CollectionView ItemsSource="{Binding Products}">
+                <CollectionView.ItemsLayout>
+                    <GridItemsLayout Orientation="Vertical" Span="2" HorizontalItemSpacing="8" VerticalItemSpacing="8" />
+                </CollectionView.ItemsLayout>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="dto:ShopProductDto">
+                        <Border Style="{StaticResource Card}">
+                            <VerticalStackLayout Spacing="4">
+                                <Image Source="{Binding CardImage}" HeightRequest="140" Aspect="AspectFit" />
+                                <Label FontAttributes="Bold" FontSize="13" LineBreakMode="TailTruncation">
+                                    <Label.Text>
+                                        <MultiBinding Converter="{StaticResource FirstNotEmptyConverter}">
+                                            <Binding Path="CardName" />
+                                            <Binding Path="ProductName" />
+                                        </MultiBinding>
+                                    </Label.Text>
+                                </Label>
+                                <Label TextColor="{StaticResource ColorBrandPrimary}" FontAttributes="Bold">
+                                    <Label.Text>
+                                        <MultiBinding StringFormat="{}{0:N2} {1}">
+                                            <Binding Path="Price" />
+                                            <Binding Path="Currency" />
+                                        </MultiBinding>
+                                    </Label.Text>
+                                </Label>
+                            </VerticalStackLayout>
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:CatalogViewModel}}, Path=OpenProductCommand}"
+                                    CommandParameter="{Binding .}" />
+                            </Border.GestureRecognizers>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+                <CollectionView.EmptyView>
+                    <Label Text="Aucun produit disponible pour le moment." HorizontalOptions="Center" Margin="0,40"
+                           Style="{StaticResource SubtleLabel}" />
+                </CollectionView.EmptyView>
+            </CollectionView>
+        </RefreshView>
+    </Grid>
+</ContentPage>

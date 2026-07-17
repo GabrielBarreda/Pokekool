@@ -4,6 +4,13 @@ import { StorageService } from '../storage.service';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { ToastService } from '@shared/services/toast.service';
 import { StorageBinderDto, StorageBoxDto } from '../storage.models';
+import { StorageIconComponent } from './storage-icon.component';
+
+/** Payload d'un drop de carte stock sur un classeur (depuis la popup d'assignation). */
+export interface StockDropEvent {
+  binderId: string;
+  stockOwnerId: string;
+}
 
 /**
  * Classeurs du carton sélectionné (présentationnel : la liste vient du parent).
@@ -12,7 +19,7 @@ import { StorageBinderDto, StorageBoxDto } from '../storage.models';
 @Component({
   selector: 'app-storage-binder-list',
   standalone: true,
-  imports: [FormsModule, HasPermissionDirective],
+  imports: [FormsModule, HasPermissionDirective, StorageIconComponent],
   styleUrls: ['../controls.scss'],
   template: `
     <section class="panel">
@@ -28,11 +35,18 @@ import { StorageBinderDto, StorageBoxDto } from '../storage.models';
           <p class="empty">Aucun classeur dans ce carton.</p>
         } @else {
           <ul class="list">
-            @for (b of binders(); track b.id) {
-              <li class="bd" draggable="true" [class.bd--sel]="b.id === selectedId()"
-                  (dragstart)="onDragStart($event, b)" (click)="select(b)">
-                <span class="pos">{{ b.positionInBox ?? '·' }}</span>
+            @for (b of binders(); track b.id; let i = $index) {
+              <li class="bd" draggable="true"
+                  [class.bd--sel]="b.id === selectedId()"
+                  [class.bd--drop]="b.id === dropTargetId()"
+                  (dragstart)="onDragStart($event, b)"
+                  (dragover)="onBinderDragOver($event, b)"
+                  (dragleave)="onBinderDragLeave()"
+                  (drop)="onBinderDrop($event, b)"
+                  (click)="select(b)">
+                <app-storage-icon class="binder-icon" name="binder" [variant]="i" [size]="22" />
                 <span class="lbl">{{ b.label }}</span>
+                @if (b.positionInBox != null) { <span class="pos-tag">#{{ b.positionInBox }}</span> }
               </li>
             }
           </ul>
@@ -53,11 +67,13 @@ import { StorageBinderDto, StorageBoxDto } from '../storage.models';
     .ctx { font-size: .75rem; color: #888; }
     .empty { color: #999; font-size: .82rem; }
     .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
-    .bd { display: flex; align-items: center; gap: .5rem; padding: .35rem .5rem; background: #fafafa; border: 1px solid transparent; border-radius: 7px; font-size: .84rem; cursor: pointer; }
+    .bd { display: flex; align-items: center; gap: .5rem; padding: .35rem .5rem; background: #fafafa; border: 1px solid transparent; border-radius: 7px; font-size: .84rem; cursor: pointer; transition: border-color .15s, background .15s; }
     .bd:hover { background: #f2f2f2; }
     .bd--sel { border-color: #2E5AAC; background: #eef3fc; }
-    .pos { display: inline-flex; width: 1.4rem; height: 1.4rem; align-items: center; justify-content: center; background: #2E5AAC; color: #fff; border-radius: 50%; font-size: .72rem; flex: 0 0 auto; }
-    .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bd--drop { border-color: #16a34a; background: #f0fdf4; border-style: dashed; }
+    .binder-icon { flex: 0 0 auto; }
+    .lbl { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pos-tag { flex: 0 0 auto; font-size: .7rem; color: #9aa1ad; font-weight: 600; }
     .add { display: flex; gap: .4rem; }
     .add .input { flex: 1; }
     .pos-in { flex: 0 0 3.2rem; }
@@ -73,6 +89,9 @@ export class StorageBinderListComponent {
 
   readonly binderSelected = output<StorageBinderDto>();
   readonly changed = output<void>();
+  readonly stockDropped = output<StockDropEvent>();
+
+  readonly dropTargetId = signal<string | null>(null);
 
   readonly saving = signal(false);
   label = '';
@@ -102,5 +121,26 @@ export class StorageBinderListComponent {
   onDragStart(event: DragEvent, b: StorageBinderDto): void {
     event.dataTransfer?.setData('text/plain', `binder:${b.id}`);
     if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+  }
+
+  onBinderDragOver(event: DragEvent, b: StorageBinderDto): void {
+    const payload = event.dataTransfer?.getData('text/plain') ?? '';
+    if (!payload.startsWith('stock:')) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+    this.dropTargetId.set(b.id);
+  }
+
+  onBinderDragLeave(): void {
+    this.dropTargetId.set(null);
+  }
+
+  onBinderDrop(event: DragEvent, b: StorageBinderDto): void {
+    this.dropTargetId.set(null);
+    const payload = event.dataTransfer?.getData('text/plain') ?? '';
+    if (!payload.startsWith('stock:')) return;
+    event.preventDefault();
+    const stockOwnerId = payload.slice('stock:'.length);
+    this.stockDropped.emit({ binderId: b.id, stockOwnerId });
   }
 }

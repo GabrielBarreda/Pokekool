@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ContentPage
+    x:Class="Pokekool.Mobile.Views.Client.AlertsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Mes alertes">
+
+    <!-- Placeholder : les contrats API alertes ne sont pas encore exposés (cf. Alertes-Feature). -->
+    <VerticalStackLayout Padding="32" Spacing="12" VerticalOptions="Center">
+        <Label Text="🔔" FontSize="48" HorizontalOptions="Center" />
+        <Label Text="Bientôt disponible" Style="{StaticResource TitleLabel}" HorizontalOptions="Center" />
+        <Label Text="Les alertes de prix sur vos cartes suivies arrivent prochainement."
+               Style="{StaticResource SubtleLabel}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
+    </VerticalStackLayout>
+</ContentPage>

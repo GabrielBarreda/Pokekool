@@ -18,6 +18,8 @@ internal sealed class StorageRoomRepository : IStorageRoomRepository
 
     public async Task AddAsync(StorageRoom room, CancellationToken ct = default)
         => await _db.StorageRooms.AddAsync(room, ct);
+
+    public void Remove(StorageRoom room) => _db.StorageRooms.Remove(room);
 }
 
 internal sealed class StorageBoxRepository : IStorageBoxRepository
@@ -45,6 +47,8 @@ internal sealed class StorageBoxRepository : IStorageBoxRepository
 
     public async Task AddAsync(StorageBox box, CancellationToken ct = default)
         => await _db.StorageBoxes.AddAsync(box, ct);
+
+    public void Remove(StorageBox box) => _db.StorageBoxes.Remove(box);
 }
 
 internal sealed class StorageBinderRepository : IStorageBinderRepository
@@ -91,6 +95,10 @@ internal sealed class StorageLocationRepository : IStorageLocationRepository
         return await _db.StorageLocations.Where(l => binderIds.Contains(l.BinderId))
             .OrderBy(l => l.SlotPosition).ToListAsync(ct);
     }
+
+    public Task<StorageLocation?> FindByOwnerAsync(string ownerType, Guid ownerId, CancellationToken ct = default)
+        => _db.StorageLocations.FirstOrDefaultAsync(
+            l => l.OwnerType == ownerType && l.OwnerId == ownerId, ct);
 
     public async Task AddAsync(StorageLocation location, CancellationToken ct = default)
         => await _db.StorageLocations.AddAsync(location, ct);

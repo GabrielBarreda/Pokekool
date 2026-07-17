@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ContentPage
+    x:Class="Pokekool.Mobile.Views.Admin.ProfilePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Pokekool.Mobile.ViewModels"
+    x:DataType="vm:ProfileViewModel"
+    Title="Mon profil">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="12">
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+            <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource ColorSemanticDanger}"
+                   IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
+
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="4">
+                    <Label FontAttributes="Bold" FontSize="18">
+                        <Label.Text>
+                            <MultiBinding StringFormat="{}{0} {1}">
+                                <Binding Path="Me.FirstName" />
+                                <Binding Path="Me.LastName" />
+                            </MultiBinding>
+                        </Label.Text>
+                    </Label>
+                    <Label Text="{Binding Me.Email}" Style="{StaticResource SubtleLabel}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Changer le mot de passe" FontAttributes="Bold" />
+                    <Entry Placeholder="Mot de passe actuel" IsPassword="True" Text="{Binding CurrentPassword}" />
+                    <Entry Placeholder="Nouveau mot de passe" IsPassword="True" Text="{Binding NewPassword}" />
+                    <Entry Placeholder="Confirmer" IsPassword="True" Text="{Binding NewPasswordConfirm}" />
+                    <Label Text="{Binding PasswordMessage}"
+                           IsVisible="{Binding PasswordMessage, Converter={StaticResource IsNotNullConverter}}" />
+                    <Button Text="Modifier" Command="{Binding ChangePasswordCommand}" IsEnabled="{Binding IsNotBusy}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Button Text="Se déconnecter" Style="{StaticResource DangerButton}" Command="{Binding LogoutCommand}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

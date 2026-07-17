@@ -84,6 +84,7 @@ public static class DependencyInjection
         services.AddScoped<ICardPopulationRepository, CardPopulationRepository>();
         services.AddScoped<IProviderMappingRepository, ProviderMappingRepository>();
         services.AddScoped<IProviderSettingRepository, ProviderSettingRepository>();
+        services.AddScoped<IAppSettingRepository, AppSettingRepository>();
         services.AddScoped<IUserCollectionRepository, UserCollectionRepository>();
         services.AddScoped<IDashboardRepository, DashboardRepository>();
 
@@ -240,12 +241,25 @@ public static class DependencyInjection
         services.AddScoped<IChatTool, GetPlanningTool>();
         services.AddScoped<IChatTool, GetMarketPriceTool>();
         services.AddScoped<IChatTool, OpenCameraTool>();
+        services.AddScoped<IChatTool, ListStorageRoomsTool>();
+        services.AddScoped<IChatTool, SearchStorageBoxesTool>();
+        services.AddScoped<IChatTool, LookupStorageBoxTool>();
+        services.AddScoped<IChatTool, GetPendingMovementsTool>();
 
         // Outils d'action (human-in-the-loop)
         services.AddScoped<IChatTool, CreateStockActionTool>();
+        services.AddScoped<IChatTool, UpdateStockActionTool>();
+        services.AddScoped<IChatTool, DeleteStockActionTool>();
         services.AddScoped<IChatTool, CreateProductActionTool>();
+        services.AddScoped<IChatTool, UpdateProductActionTool>();
+        services.AddScoped<IChatTool, ToggleProductAvailabilityActionTool>();
+        services.AddScoped<IChatTool, DeleteProductActionTool>();
         services.AddScoped<IChatTool, UpdateAppointmentStatusActionTool>();
         services.AddScoped<IChatTool, RescheduleAppointmentActionTool>();
+        services.AddScoped<IChatTool, AssignStorageLocationActionTool>();
+        services.AddScoped<IChatTool, PlaceBoxActionTool>();
+        services.AddScoped<IChatTool, PlaceBinderActionTool>();
+        services.AddScoped<IChatTool, ConfirmMovementActionTool>();
 
         return services;
     }

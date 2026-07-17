@@ -75,6 +75,16 @@ public sealed class StorageBinder : Entity
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 
+    /// <summary>Détache complètement le classeur (ni carton ni meuble) → « non rangé ».</summary>
+    public void Detach()
+    {
+        BoxId = null;
+        PositionInBox = null;
+        FurnitureId = null;
+        LevelIndex = null;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
     /// <summary>Pose le classeur directement sur un meuble/niveau (détache d'un éventuel carton).</summary>
     public void PlaceOnFurniture(Guid furnitureId, short levelIndex)
     {

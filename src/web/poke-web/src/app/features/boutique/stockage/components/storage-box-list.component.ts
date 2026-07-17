@@ -1,6 +1,7 @@
 import { Component, inject, input, output, signal, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { StorageService } from '../storage.service';
+import { StorageIconComponent } from './storage-icon.component';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { ToastService } from '@shared/services/toast.service';
 import {
@@ -16,7 +17,7 @@ const EMPTY = (roomId: string): CreateStorageBoxRequest => ({
 @Component({
   selector: 'app-storage-box-list',
   standalone: true,
-  imports: [FormsModule, HasPermissionDirective],
+  imports: [FormsModule, HasPermissionDirective, StorageIconComponent],
   styleUrls: ['../controls.scss'],
   template: `
     <section class="panel">
@@ -68,9 +69,13 @@ const EMPTY = (roomId: string): CreateStorageBoxRequest => ({
                 (dragstart)="onDragStart($event, b)"
                 (click)="pick(b)">
               <span class="ck__grip" title="Glisser dans la vue 3D">⠿</span>
+              <app-storage-icon class="ck__icon" name="box" [size]="30"
+                [title]="b.size ? 'Carton taille ' + b.size : 'Carton'" />
               <span class="ck__body">
                 <span class="ck__code">{{ b.barcode || b.internalCode }}</span>
-                <span class="ck__meta">{{ originShort(b.labelOrigin) }}{{ b.size ? ' · ' + b.size : '' }}</span>
+                <span class="ck__meta">
+                  {{ originShort(b.labelOrigin) }}@if (b.size) { · taille {{ b.size }} }
+                </span>
               </span>
               @if (isPlaced(b)) {
                 <span class="ck__dot ck__dot--on" title="Placé dans la salle"></span>
@@ -96,6 +101,7 @@ const EMPTY = (roomId: string): CreateStorageBoxRequest => ({
     .ck:active { cursor: grabbing; }
     .ck--sel { border-color: #4CAF50; background: #f2fbf2; }
     .ck__grip { color: #bbb; font-size: 1rem; }
+    .ck__icon { flex: 0 0 auto; }
     .ck__body { display: flex; flex-direction: column; flex: 1; min-width: 0; }
     .ck__code { font-weight: 600; font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .ck__meta { font-size: .72rem; color: #888; }

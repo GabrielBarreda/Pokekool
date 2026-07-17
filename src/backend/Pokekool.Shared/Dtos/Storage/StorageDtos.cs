@@ -34,6 +34,44 @@ public sealed record StorageBinderDto(
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt);
 
+/// <summary>Un point de prix (source + date) — sert de "valeur récente / dernière vente".</summary>
+public sealed record StoragePricePointDto(
+    string Source,
+    decimal Price,
+    string Currency,
+    DateTime FetchedAt);
+
+/// <summary>Détail comptoir d'une carte en stock : condition/grade, prix estimé, valeurs récentes même grade.</summary>
+public sealed record StorageCardDetailDto(
+    Guid? CardId,
+    string Name,
+    string? SetName,
+    string? ImageSmall,
+    string? ImageLarge,
+    string Type,                    // CardRaw | CardGraded | Sealed…
+    string? Condition,
+    string? GradingCompany,
+    decimal? GradeValue,
+    decimal? EstimatedPrice,
+    string? EstimatedCurrency,
+    int QuantityAvailable,
+    IReadOnlyList<StoragePricePointDto> RecentPrices);
+
+/// <summary>Carte rangée dans un classeur (via StorageLocation → ShopStock → carte).</summary>
+public sealed record StorageBinderCardDto(
+    Guid LocationId,
+    string OwnerType,
+    Guid OwnerId,
+    Guid? CardId,
+    string Name,
+    string? ImageSmall,
+    string? ImageLarge,
+    string? SetName,
+    string? Condition,
+    string? GradingCompany,
+    decimal? GradeValue,
+    int SlotPosition);
+
 public sealed record StorageFurnitureDto(
     Guid Id,
     Guid RoomId,
@@ -94,3 +132,13 @@ public sealed record StorageCompileJobDto(
     string? ErrorMessage,
     DateTimeOffset CreatedAt,
     DateTime? CompletedAt);
+
+/// <summary>Paramètres du module Stockage exposés à l'UI (onglet Paramètres › Stockage).</summary>
+public sealed record StorageSettingsDto(
+    bool CascadeDelete);
+
+/// <summary>Valeur estimée d'un carton/classeur : somme des cotes des cartes qu'il contient.</summary>
+public sealed record StorageEstimateDto(
+    decimal? Total,
+    string? Currency,
+    int ItemCount);

@@ -28,6 +28,15 @@ public sealed record AssignStorageLocationRequest(
     Guid OwnerId,
     short? SlotPosition);
 
+/// <summary>Assigne en lot plusieurs items du stock boutique à un classeur.</summary>
+public sealed record BatchAssignBinderRequest(IReadOnlyList<Guid> OwnerIds);
+
+/// <summary>Crée des StorageLocations depuis un scan validé (cardIds = ShopStock.Id).</summary>
+public sealed record CreateFromScanRequest(
+    Guid BinderId,
+    string OwnerType,
+    IReadOnlyList<Guid> ValidatedOwnerIds);
+
 public sealed record ConfirmMovementRequest(bool Confirm);
 
 // ── Meubles / rangement ──────────────────────────────────────────────────────
@@ -50,3 +59,7 @@ public sealed record PlaceBinderRequest(
     short? PositionInBox,
     Guid? FurnitureId,
     short? LevelIndex);
+
+/// <summary>Mise à jour des paramètres du module Stockage.</summary>
+public sealed record UpdateStorageSettingsRequest(
+    bool CascadeDelete);

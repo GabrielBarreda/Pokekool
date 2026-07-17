@@ -5,15 +5,16 @@ import { environment } from '@env/environment';
 import {
   StorageRoomDto, StorageRoomLayoutDto, StorageBoxDto, StorageBinderDto,
   StorageLocationDto, StorageBoxLookupDto, StorageMovementEventDto, StorageCompileJobDto,
-  StorageFurnitureDto,
+  StorageFurnitureDto, StorageBinderCardDto, StorageCardDetailDto, StorageSettingsDto, StorageEstimateDto,
   CreateStorageRoomRequest, CreateStorageBoxRequest, CreateStorageBinderRequest,
-  CreateStorageFurnitureRequest,
+  CreateStorageFurnitureRequest, ShopStockDto, PagedResult, ScanBinderResult,
 } from './storage.models';
 
 @Injectable({ providedIn: 'root' })
 export class StorageService {
   private readonly http = inject(HttpClient);
   private readonly base = `${environment.apiBaseUrl}/v1/admin/storage`;
+  private readonly shopBase = `${environment.apiBaseUrl}/v1/admin/shop`;
 
   // ── Salles ─────────────────────────────────────────────
   getRooms(): Observable<StorageRoomDto[]> {
@@ -24,6 +25,17 @@ export class StorageService {
   }
   getRoomLayout(roomId: string): Observable<StorageRoomLayoutDto> {
     return this.http.get<StorageRoomLayoutDto>(`${this.base}/rooms/${roomId}/layout`);
+  }
+  deleteRoom(roomId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/rooms/${roomId}`);
+  }
+
+  // ── Paramètres du module ───────────────────────────────
+  getStorageSettings(): Observable<StorageSettingsDto> {
+    return this.http.get<StorageSettingsDto>(`${this.base}/settings`);
+  }
+  updateStorageSettings(body: StorageSettingsDto): Observable<StorageSettingsDto> {
+    return this.http.put<StorageSettingsDto>(`${this.base}/settings`, body);
   }
 
   // ── Modèle 3D ──────────────────────────────────────────
@@ -48,6 +60,9 @@ export class StorageService {
   updateBoxPosition(boxId: string, position3dJson: string | null): Observable<StorageBoxDto> {
     return this.http.patch<StorageBoxDto>(`${this.base}/boxes/${boxId}/position`, { position3dJson });
   }
+  deleteBox(boxId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/boxes/${boxId}`);
+  }
 
   // ── Classeurs ──────────────────────────────────────────
   getBinders(boxId: string): Observable<StorageBinderDto[]> {
@@ -65,6 +80,18 @@ export class StorageService {
       boxId: p.boxId ?? null, positionInBox: p.positionInBox ?? null,
       furnitureId: p.furnitureId ?? null, levelIndex: p.levelIndex ?? null,
     });
+  }
+
+  getBinderCards(binderId: string): Observable<StorageBinderCardDto[]> {
+    return this.http.get<StorageBinderCardDto[]>(`${this.base}/binders/${binderId}/cards`);
+  }
+  getCardDetail(ownerType: string, ownerId: string): Observable<StorageCardDetailDto> {
+    const params = new HttpParams().set('ownerType', ownerType).set('ownerId', ownerId);
+    return this.http.get<StorageCardDetailDto>(`${this.base}/card-detail`, { params });
+  }
+  getEstimate(ownerType: 'box' | 'binder', ownerId: string): Observable<StorageEstimateDto> {
+    const params = new HttpParams().set('ownerType', ownerType).set('ownerId', ownerId);
+    return this.http.get<StorageEstimateDto>(`${this.base}/estimate`, { params });
   }
 
   // ── Meubles ────────────────────────────────────────────
@@ -95,6 +122,32 @@ export class StorageService {
   ): Observable<StorageLocationDto> {
     return this.http.post<StorageLocationDto>(`${this.base}/locations`, {
       binderId, ownerType, ownerId, slotPosition,
+    });
+  }
+
+  /** Assigne plusieurs items du stock boutique à un classeur en un seul appel. */
+  batchAssign(binderId: string, ownerIds: string[]): Observable<StorageLocationDto[]> {
+    return this.http.post<StorageLocationDto[]>(`${this.base}/binders/${binderId}/assign`, { ownerIds });
+  }
+
+  // ── Stock boutique (pour popup assignation) ────────────
+  getShopStock(params?: { type?: string; search?: string; page?: number; pageSize?: number }): Observable<PagedResult<ShopStockDto>> {
+    let p = new HttpParams();
+    if (params?.type) p = p.set('type', params.type);
+    if (params?.search) p = p.set('search', params.search);
+    if (params?.page != null) p = p.set('page', params.page.toString());
+    if (params?.pageSize != null) p = p.set('pageSize', params.pageSize.toString());
+    return this.http.get<PagedResult<ShopStockDto>>(`${this.shopBase}/stock`, { params: p });
+  }
+
+  // ── Scan classeur double-page ──────────────────────────
+  scanBinder(formData: FormData): Observable<ScanBinderResult> {
+    return this.http.post<ScanBinderResult>(`${this.base}/scan-binder`, formData);
+  }
+
+  createFromScan(binderId: string, ownerType: string, validatedOwnerIds: string[]): Observable<StorageLocationDto[]> {
+    return this.http.post<StorageLocationDto[]>(`${this.base}/create-from-scan`, {
+      binderId, ownerType, validatedOwnerIds,
     });
   }
 

@@ -1,5 +1,4 @@
 import { Component, inject, input, output, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { StorageService } from '../storage.service';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { ToastService } from '@shared/services/toast.service';
@@ -12,28 +11,19 @@ import { StorageFurnitureDto, FurnitureType, FURNITURE_LABELS } from '../storage
 @Component({
   selector: 'app-storage-furniture-list',
   standalone: true,
-  imports: [FormsModule, HasPermissionDirective],
+  imports: [HasPermissionDirective],
   styleUrls: ['../controls.scss'],
   template: `
     <section class="panel">
       <header class="panel__head">
         <h3>Meubles</h3>
-        <button *hasPermission="'storage:write'" class="btn-primary sm" (click)="toggleCreate()">+ Meuble</button>
+        <div *hasPermission="'storage:write'" class="fu-create">
+          <button class="btn-primary sm" [disabled]="saving()" (click)="create('ShelfClassic6')"
+                  title="Ajouter une étagère 6 niveaux (nom auto)">+ Étagère</button>
+          <button class="btn-secondary sm" [disabled]="saving()" (click)="create('ShelfWall')"
+                  title="Ajouter une étagère murale (nom auto)">+ Murale</button>
+        </div>
       </header>
-
-      @if (creating()) {
-        <form class="form" (ngSubmit)="submit()">
-          <select class="input sm" [(ngModel)]="type" name="ty">
-            <option value="ShelfClassic6">Étagère (6 niveaux)</option>
-            <option value="ShelfWall">Étagère murale</option>
-          </select>
-          <input class="input sm" placeholder="Nom (optionnel)" [(ngModel)]="name" name="nm" />
-          <div class="form__actions">
-            <button type="button" class="btn-secondary sm" (click)="toggleCreate()">Annuler</button>
-            <button type="submit" class="btn-primary sm" [disabled]="saving()">Créer</button>
-          </div>
-        </form>
-      }
 
       @if (furniture().length === 0) {
         <p class="empty">Aucun meuble. Créez-en un, puis glissez-le dans la vue 3D.</p>
@@ -77,6 +67,7 @@ import { StorageFurnitureDto, FurnitureType, FURNITURE_LABELS } from '../storage
     .fu__dot { width: .55rem; height: .55rem; border-radius: 50%; background: #d7d7d7; flex: 0 0 auto; }
     .fu__dot--on { background: #4CAF50; }
     .fu__del { border: none; background: none; color: #c33; cursor: pointer; font-size: .8rem; padding: 0 .2rem; }
+    .fu-create { display: flex; gap: .35rem; }
   `],
 })
 export class StorageFurnitureListComponent {
@@ -90,23 +81,15 @@ export class StorageFurnitureListComponent {
   readonly picked = output<StorageFurnitureDto>();
   readonly changed = output<void>();
 
-  readonly creating = signal(false);
   readonly saving = signal(false);
-  type: FurnitureType = 'ShelfClassic6';
-  name = '';
-
-  toggleCreate(): void {
-    this.creating.update(v => !v);
-    if (this.creating()) { this.type = 'ShelfClassic6'; this.name = ''; }
-  }
-
-  submit(): void {
+  /** Création directe, sans formulaire : nom auto-incrémenté « Meuble N ». */
+  create(type: FurnitureType): void {
     this.saving.set(true);
-    this.service.createFurniture({ roomId: this.roomId(), type: this.type, name: this.name.trim() || null })
-      .subscribe({
-        next: () => { this.saving.set(false); this.creating.set(false); this.toast.success('Meuble créé.'); this.changed.emit(); },
-        error: () => { this.saving.set(false); this.toast.error('Création impossible.'); },
-      });
+    const n = this.furniture().length + 1;
+    this.service.createFurniture({ roomId: this.roomId(), type, name: `Meuble ${n}` }).subscribe({
+      next: () => { this.saving.set(false); this.toast.success('Meuble créé.'); this.changed.emit(); },
+      error: () => { this.saving.set(false); this.toast.error('Création impossible.'); },
+    });
   }
 
   del(event: Event, f: StorageFurnitureDto): void {

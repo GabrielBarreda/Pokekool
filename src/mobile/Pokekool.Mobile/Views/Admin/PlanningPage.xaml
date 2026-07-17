@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ContentPage
+    x:Class="Pokekool.Mobile.Views.Admin.PlanningPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Pokekool.Mobile.ViewModels"
+    xmlns:dto="clr-namespace:Pokekool.Shared.Dtos.Shop;assembly=Pokekool.Shared"
+    x:DataType="vm:PlanningViewModel"
+    Title="Planning RDV">
+
+    <Grid RowDefinitions="Auto,*" Padding="12" RowSpacing="8">
+        <Label Grid.Row="0" Text="{Binding ErrorMessage}" TextColor="{StaticResource ColorSemanticDanger}"
+               IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
+
+        <RefreshView Grid.Row="1" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+            <CollectionView ItemsSource="{Binding Appointments}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="dto:ShopAppointmentDto">
+                        <Border Style="{StaticResource Card}" Margin="0,4">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <VerticalStackLayout Grid.Column="0" Spacing="2">
+                                    <Label Text="{Binding ScheduledAt, StringFormat='{0:ddd d MMM · HH:mm}'}"
+                                           FontAttributes="Bold" />
+                                    <Label Style="{StaticResource SubtleLabel}">
+                                        <Label.Text>
+                                            <MultiBinding StringFormat="{}{0} · {1} ({2} min)">
+                                                <Binding Path="ClientName" />
+                                                <Binding Path="ServiceType" />
+                                                <Binding Path="DurationMinutes" />
+                                            </MultiBinding>
+                                        </Label.Text>
+                                    </Label>
+                                    <Label Text="{Binding NotesClient}" Style="{StaticResource SubtleLabel}"
+                                           IsVisible="{Binding NotesClient, Converter={StaticResource IsNotNullConverter}}" />
+                                </VerticalStackLayout>
+                                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="4">
+                                    <Label Text="{Binding Status}" FontSize="12" FontAttributes="Bold"
+                                           TextColor="{StaticResource ColorSemanticInfo}" HorizontalTextAlignment="End" />
+                                    <Button Text="Statut" Style="{StaticResource SecondaryButton}" HeightRequest="34"
+                                            FontSize="12" Padding="10,0"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:PlanningViewModel}}, Path=ChangeStatusCommand}"
+                                            CommandParameter="{Binding .}" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+                <CollectionView.EmptyView>
+                    <Label Text="Aucun rendez-vous." HorizontalOptions="Center" Margin="0,40"
+                           Style="{StaticResource SubtleLabel}" />
+                </CollectionView.EmptyView>
+            </CollectionView>
+        </RefreshView>
+    </Grid>
+</ContentPage>

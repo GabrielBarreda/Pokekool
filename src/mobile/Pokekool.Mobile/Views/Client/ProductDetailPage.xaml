@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ContentPage
+    x:Class="Pokekool.Mobile.Views.Client.ProductDetailPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Pokekool.Mobile.ViewModels"
+    x:DataType="vm:ProductDetailViewModel"
+    Title="Produit">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="12">
+
+            <Image Source="{Binding Product.CardImage}" HeightRequest="260" Aspect="AspectFit" />
+
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="4">
+                    <Label FontAttributes="Bold" FontSize="18">
+                        <Label.Text>
+                            <MultiBinding Converter="{StaticResource FirstNotEmptyConverter}">
+                                <Binding Path="Product.CardName" />
+                                <Binding Path="Product.ProductName" />
+                            </MultiBinding>
+                        </Label.Text>
+                    </Label>
+                    <Label Style="{StaticResource SubtleLabel}">
+                        <Label.Text>
+                            <MultiBinding StringFormat="{}{0} · {1} · {2}">
+                                <Binding Path="Product.Type" />
+                                <Binding Path="Product.Language" />
+                                <Binding Path="Product.Condition" />
+                            </MultiBinding>
+                        </Label.Text>
+                    </Label>
+                    <Label FontSize="22" FontAttributes="Bold" TextColor="{StaticResource ColorBrandPrimary}">
+                        <Label.Text>
+                            <MultiBinding StringFormat="{}{0:N2} {1}">
+                                <Binding Path="Product.Price" />
+                                <Binding Path="Product.Currency" />
+                            </MultiBinding>
+                        </Label.Text>
+                    </Label>
+                    <Label Text="{Binding Product.Description}"
+                           IsVisible="{Binding Product.Description, Converter={StaticResource IsNotNullConverter}}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Intéressé(e) ?" FontAttributes="Bold" />
+                    <Editor Placeholder="Message pour la boutique (optionnel)" Text="{Binding Message}"
+                            HeightRequest="80" />
+                    <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource ColorSemanticDanger}"
+                           IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
+                    <Label Text="{Binding Confirmation}" TextColor="{StaticResource ColorSemanticSuccess}"
+                           IsVisible="{Binding Confirmation, Converter={StaticResource IsNotNullConverter}}" />
+                    <Button Text="Demander à l'acheter" Command="{Binding RequestPurchaseCommand}"
+                            IsEnabled="{Binding IsNotBusy}" />
+                </VerticalStackLayout>
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

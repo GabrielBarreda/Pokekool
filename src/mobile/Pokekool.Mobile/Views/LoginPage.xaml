@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ContentPage
+    x:Class="Pokekool.Mobile.Views.LoginPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Pokekool.Mobile.ViewModels"
+    x:DataType="vm:LoginViewModel"
+    Shell.NavBarIsVisible="False">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="32,80,32,32" Spacing="16" VerticalOptions="Center">
+
+            <Label Text="Pokekool" FontSize="34" FontAttributes="Bold"
+                   TextColor="{StaticResource ColorBrandPrimary}" HorizontalOptions="Center" />
+            <Label Text="Bourse · Collection · Boutique" Style="{StaticResource SubtleLabel}"
+                   HorizontalOptions="Center" Margin="0,0,0,24" />
+
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="12">
+                    <Entry Placeholder="Email" Text="{Binding Email}"
+                           Keyboard="Email" ReturnType="Next" />
+                    <Entry Placeholder="Mot de passe" Text="{Binding Password}"
+                           IsPassword="True" ReturnType="Done"
+                           ReturnCommand="{Binding LoginCommand}" />
+
+                    <VerticalStackLayout Spacing="12" IsVisible="{Binding IsRegisterMode}">
+                        <Entry Placeholder="Prénom (optionnel)" Text="{Binding FirstName}" />
+                        <Entry Placeholder="Nom (optionnel)" Text="{Binding LastName}" />
+                    </VerticalStackLayout>
+
+                    <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource ColorSemanticDanger}"
+                           IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
+
+                    <Button Text="Se connecter" Command="{Binding LoginCommand}"
+                            IsEnabled="{Binding IsNotBusy}">
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button" Binding="{Binding IsRegisterMode}" Value="True">
+                                <Setter Property="Text" Value="Créer mon compte" />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+
+                    <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Button Style="{StaticResource SecondaryButton}"
+                    Text="Pas de compte ? S'inscrire"
+                    Command="{Binding ToggleModeCommand}">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding IsRegisterMode}" Value="True">
+                        <Setter Property="Text" Value="Déjà un compte ? Se connecter" />
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

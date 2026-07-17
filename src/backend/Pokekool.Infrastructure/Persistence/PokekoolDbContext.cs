@@ -24,6 +24,7 @@ public sealed class PokekoolDbContext : DbContext
     public DbSet<ProviderSetMapping>  ProviderSetMappings  => Set<ProviderSetMapping>();
     public DbSet<ProviderCardMapping> ProviderCardMappings => Set<ProviderCardMapping>();
     public DbSet<ProviderSetting> ProviderSettings => Set<ProviderSetting>();
+    public DbSet<AppSetting> AppSettings => Set<AppSetting>();
     public DbSet<UserCollection> UserCollections => Set<UserCollection>();
 
     // ── Module Client ──────────────────────────────────────────

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ContentPage
+    x:Class="Pokekool.Mobile.Views.Admin.SetCardsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:Pokekool.Mobile.ViewModels"
+    xmlns:dto="clr-namespace:Pokekool.Shared.Dtos.Pokemon;assembly=Pokekool.Shared"
+    x:DataType="vm:SetCardsViewModel"
+    Title="{Binding SetName}">
+
+    <Grid RowDefinitions="Auto,Auto,*" Padding="12" RowSpacing="8">
+
+        <SearchBar Grid.Row="0" Placeholder="Rechercher une carte…" Text="{Binding Search}"
+                   SearchCommand="{Binding RefreshCommand}" />
+
+        <Label Grid.Row="1" Text="{Binding ErrorMessage}" TextColor="{StaticResource ColorSemanticDanger}"
+               IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
+
+        <RefreshView Grid.Row="2" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+            <CollectionView ItemsSource="{Binding Cards}"
+                            RemainingItemsThreshold="10"
+                            RemainingItemsThresholdReachedCommand="{Binding LoadMoreCommand}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="dto:MarketCardDto">
+                        <Border Style="{StaticResource Card}" Margin="0,4">
+                            <Grid ColumnDefinitions="56,*,Auto" ColumnSpacing="10">
+                                <Image Grid.Column="0" Source="{Binding ImageSmall}" HeightRequest="72" Aspect="AspectFit" />
+                                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                                    <Label FontAttributes="Bold" LineBreakMode="TailTruncation">
+                                        <Label.Text>
+                                            <MultiBinding StringFormat="{}{0} · #{1}">
+                                                <Binding Path="Name" />
+                                                <Binding Path="Number" />
+                                            </MultiBinding>
+                                        </Label.Text>
+                                    </Label>
+                                    <Label Text="{Binding Rarity}" Style="{StaticResource SubtleLabel}" />
+                                </VerticalStackLayout>
+                                <VerticalStackLayout Grid.Column="2" VerticalOptions="Center" Spacing="2">
+                                    <Label Text="{Binding PriceMarket, StringFormat='{0:N2}'}"
+                                           FontAttributes="Bold" HorizontalTextAlignment="End"
+                                           TextColor="{StaticResource ColorBrandPrimary}" />
+                                    <Label Text="{Binding PriceSource}" Style="{StaticResource SubtleLabel}"
+                                           HorizontalTextAlignment="End" FontSize="11" />
+                                </VerticalStackLayout>
+                            </Grid>
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SetCardsViewModel}}, Path=OpenCardCommand}"
+                                    CommandParameter="{Binding .}" />
+                            </Border.GestureRecognizers>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
+    </Grid>
+</ContentPage>

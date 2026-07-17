@@ -7,6 +7,7 @@ public interface IStorageRoomRepository
     Task<StorageRoom?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<IReadOnlyList<StorageRoom>> ListByShopAsync(Guid shopId, CancellationToken ct = default);
     Task AddAsync(StorageRoom room, CancellationToken ct = default);
+    void Remove(StorageRoom room);
 }
 
 public interface IStorageFurnitureRepository
@@ -28,6 +29,7 @@ public interface IStorageBoxRepository
     /// <summary>Cartons rangés sur un meuble donné (pour détacher à la suppression du meuble).</summary>
     Task<IReadOnlyList<StorageBox>> ListByFurnitureAsync(Guid furnitureId, CancellationToken ct = default);
     Task AddAsync(StorageBox box, CancellationToken ct = default);
+    void Remove(StorageBox box);
 }
 
 public interface IStorageBinderRepository
@@ -45,6 +47,9 @@ public interface IStorageLocationRepository
 {
     Task<IReadOnlyList<StorageLocation>> ListByBinderAsync(Guid binderId, CancellationToken ct = default);
     Task<IReadOnlyList<StorageLocation>> ListByBinderIdsAsync(IReadOnlyList<Guid> binderIds, CancellationToken ct = default);
+
+    /// <summary>Localisation existante d'un item (une carte est rangée dans au plus un classeur).</summary>
+    Task<StorageLocation?> FindByOwnerAsync(string ownerType, Guid ownerId, CancellationToken ct = default);
     Task AddAsync(StorageLocation location, CancellationToken ct = default);
 }
 

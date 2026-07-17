@@ -7,11 +7,12 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { environment } from '@env/environment';
 import { StorageService } from '../storage.service';
 import { loadGltfClone } from '../gltf-cache';
+import { tween } from '../anim';
 import { HasPermissionDirective } from '@shared/directives/has-permission.directive';
 import { ToastService } from '@shared/services/toast.service';
 import {
   StorageBoxDto, StorageBinderDto, StorageFurnitureDto, StorageRoomDto, StorageCompileJobDto,
-  Box3dPosition, BoxDropEvent, FurnitureDropEvent, FurnitureFloorDropEvent,
+  Box3dPosition, BoxDropEvent, FurnitureDropEvent, FurnitureFloorDropEvent, BinderBoxDropEvent,
   STORAGE_ASSETS, FURNITURE_ASSET, FURNITURE_LEVEL_Y, FURNITURE_HALF_WIDTH, FurnitureType,
 } from '../storage.models';
 
@@ -28,13 +29,25 @@ import {
   standalone: true,
   imports: [HasPermissionDirective],
   template: `
-    <div class="viewer">
-      <div class="viewer__toolbar">
-        <span class="viewer__title">Vue 3D — {{ room()?.name }}</span>
-        <div class="viewer__actions">
-          @if (hasModel()) {
-            <button class="btn-ghost" (click)="resetCamera()" title="Réinitialiser la vue caméra">⟲ Vue</button>
-          }
+    <div class="viewer" #viewerRoot>
+      <div class="viewer__stage">
+        <!-- Barre d'outils overlay, ancrée en haut-gauche DANS la vue 3D -->
+        <div class="viewer__overlay">
+          <span class="viewer__title">Vue 3D — {{ room()?.name }}</span>
+          <div class="viewer__actions">
+            @if (stage() === 'carton') {
+              <button class="btn-ghost" (click)="exitCarton()">← Retour salle</button>
+            } @else if (hasModel()) {
+              <button class="btn-ghost" (click)="resetCamera()" title="Réinitialiser la vue caméra">⟲ Vue</button>
+            }
+            <label *hasPermission="'storage:write'" class="btn-ghost btn-upload">
+              ⤓ Modèle (.blend)
+              <input type="file" accept=".blend" hidden (change)="onFileSelected($event)" [disabled]="uploading()" />
+            </label>
+            <button class="btn-ghost" (click)="toggleFullscreen()" title="Plein écran">
+              @if (isFullscreen()) { ⤢ Quitter } @else { ⛶ Plein écran }
+            </button>
+          </div>
           @if (jobStatus()) {
             <span class="badge"
                   [class.badge--run]="jobStatus() === 'Running' || jobStatus() === 'Queued'"
@@ -48,16 +61,9 @@ import {
               }
             </span>
           }
-          <label *hasPermission="'storage:write'" class="btn-upload">
-            Modèle de salle (.blend)
-            <input type="file" accept=".blend" hidden (change)="onFileSelected($event)" [disabled]="uploading()" />
-          </label>
+          @if (jobError(); as err) { <span class="viewer__error">Erreur : {{ err }}</span> }
         </div>
-      </div>
 
-      @if (jobError(); as err) { <div class="viewer__error">Erreur de compilation : {{ err }}</div> }
-
-      <div class="viewer__stage">
         @if (!hasModel() && !loading()) {
           <div class="viewer__empty">
             <div class="viewer__empty-icon">🏬</div>
@@ -70,36 +76,42 @@ import {
         @if (loading()) { <div class="viewer__loading">Chargement du modèle…</div> }
         <div class="viewer__hint">
           @if (moving()) { <strong>Déplacement</strong> — relâchez pour poser · Échap pour annuler }
-          @else { Cliquez-glissez un objet pour le déplacer · clic pour l'ouvrir · glisser depuis la liste pour ajouter }
+          @else if (stage() === 'carton') { Carton ouvert (vue du dessus) — cliquez un classeur · Échap ou « Retour salle » pour revenir }
+          @else { Cliquez-glissez un objet pour le déplacer · clic pour le sélectionner · glisser depuis la liste pour ajouter }
         </div>
       </div>
     </div>
   `,
   styles: [`
-    .viewer { display: flex; flex-direction: column; gap: .5rem; height: 100%; }
-    .viewer__toolbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
-    .viewer__title { font-weight: var(--font-weight-semibold); }
-    .viewer__actions { display: flex; align-items: center; gap: .75rem; }
-    .badge { font-size: var(--font-size-xs); padding: .22rem .5rem; border-radius: var(--radius-sm); background: var(--color-surface-raised); }
-    .badge--run { background: #fff3cd; color: #7a5b00; }
-    .badge--ok  { background: #d4edda; color: #155724; }
-    .badge--ko  { background: #f8d7da; color: #721c24; }
-    .viewer__error { background: #f8d7da; color: #721c24; padding: .5rem .75rem; border-radius: var(--radius-md); font-size: var(--font-size-sm); }
-    .viewer__stage { position: relative; flex: 1; min-height: 480px; border: 1px solid var(--color-border-default); border-radius: var(--radius-lg); overflow: hidden; background: #14141a; }
+    .viewer { display: flex; flex-direction: column; height: 100%; }
+    .viewer__stage { position: relative; flex: 1; min-height: 400px; max-height: 620px;
+      border: 1px solid var(--color-border-default); border-radius: var(--radius-lg); overflow: hidden; background: #14141a; }
     .viewer__canvas { width: 100%; height: 100%; }
     .viewer__canvas.hidden { display: none; }
     .viewer__canvas.moving { cursor: grabbing; }
+
+    /* Barre d'outils flottante en haut-gauche, DANS la vue 3D */
+    .viewer__overlay { position: absolute; top: .6rem; left: .6rem; z-index: 5;
+      display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; max-width: calc(100% - 280px); }
+    .viewer__title { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold);
+      color: #fff; background: rgba(0,0,0,.42); padding: .28rem .55rem; border-radius: var(--radius-md); }
+    .viewer__actions { display: flex; align-items: center; gap: .35rem; }
+    .badge { font-size: var(--font-size-xs); padding: .22rem .5rem; border-radius: var(--radius-sm); background: rgba(255,255,255,.85); }
+    .badge--run { background: #fff3cd; color: #7a5b00; }
+    .badge--ok  { background: #d4edda; color: #155724; }
+    .badge--ko  { background: #f8d7da; color: #721c24; }
+    .viewer__error { background: #f8d7da; color: #721c24; padding: .22rem .5rem; border-radius: var(--radius-sm); font-size: var(--font-size-xs); }
     .viewer__empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #9aa; gap: .5rem; text-align: center; padding: 1rem; }
     .viewer__empty-icon { font-size: 2.5rem; }
     .viewer__loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #ccd; }
     .viewer__hint { position: absolute; left: 0; right: 0; bottom: 0; padding: .35rem .6rem; font-size: var(--font-size-xs); color: #cdd; background: rgba(0,0,0,.4); text-align: center; }
-    .btn-upload { display: inline-flex; align-items: center; height: 36px; padding: 0 var(--space-4); border-radius: var(--radius-md);
-      background: var(--color-surface-base); border: 1px solid var(--color-border-default); color: var(--color-text-primary);
-      font-size: var(--font-size-sm); cursor: pointer; }
-    .btn-upload:hover { background: var(--color-surface-raised); }
-    .btn-ghost { height: 36px; padding: 0 var(--space-3); border-radius: var(--radius-md); background: transparent;
-      border: 1px solid var(--color-border-default); color: var(--color-text-secondary); font-size: var(--font-size-sm); cursor: pointer; }
-    .btn-ghost:hover { background: var(--color-surface-raised); color: var(--color-text-primary); }
+
+    /* Boutons overlay : verre clair lisible sur le canvas sombre */
+    .btn-ghost { display: inline-flex; align-items: center; height: 30px; padding: 0 .6rem; border-radius: var(--radius-md);
+      background: rgba(255,255,255,.92); border: 1px solid rgba(0,0,0,.08); color: #333;
+      font-size: var(--font-size-xs); cursor: pointer; white-space: nowrap; }
+    .btn-ghost:hover { background: #fff; }
+    .btn-upload { cursor: pointer; }
   `],
 })
 export class StorageRoomViewerComponent implements OnDestroy {
@@ -112,18 +124,26 @@ export class StorageRoomViewerComponent implements OnDestroy {
   readonly binders = input<StorageBinderDto[]>([]);        // classeurs du carton sélectionné (in-box)
   readonly furniture = input<StorageFurnitureDto[]>([]);
   readonly looseBinders = input<StorageBinderDto[]>([]);    // classeurs posés directement sur meuble
+  /** Quand true : les meubles ne sont pas déplaçables (hit-test les ignore). */
+  readonly furnitureLocked = input(false);
 
   readonly boxSelected = output<StorageBoxDto>();
+  readonly binderSelected = output<StorageBinderDto>();         // clic sur un classeur posé (vue salle)
   readonly boxDropped = output<BoxDropEvent>();                 // carton posé au sol
   readonly furnitureFloorDropped = output<FurnitureFloorDropEvent>(); // meuble posé au sol
   readonly itemDroppedOnFurniture = output<FurnitureDropEvent>();     // carton/classeur aimanté à un niveau
+  readonly binderDroppedOnBox = output<BinderBoxDropEvent>();  // classeur déposé sur un carton → rangé dedans
+  readonly binderOpened = output<string>();                    // clic sur un classeur dans le carton focus
 
   private readonly host = viewChild.required<ElementRef<HTMLDivElement>>('host');
+  private readonly viewerRoot = viewChild.required<ElementRef<HTMLDivElement>>('viewerRoot');
+  readonly isFullscreen = signal(false);
 
   readonly loading = signal(false);
   readonly uploading = signal(false);
   readonly hasModel = signal(false);
   readonly moving = signal(false);
+  readonly stage = signal<'room' | 'carton'>('room');   // niveau de zoom (drill-down)
   readonly jobStatus = signal<string | null>(null);
   readonly jobError = signal<string | null>(null);
 
@@ -138,6 +158,7 @@ export class StorageRoomViewerComponent implements OnDestroy {
   private resizeObserver?: ResizeObserver;
   private itemsGroup = new THREE.Group();
   private boxMeshes: THREE.Object3D[] = [];
+  private binderMeshes: THREE.Object3D[] = [];   // classeurs posés (vue salle), cliquables/déplaçables
   private furnitureMeshes: THREE.Object3D[] = [];
   private furnitureBounds: { id: string; type: FurnitureType; box: THREE.Box3; baseY: number; cx: number; cz: number }[] = [];
   private ghost?: THREE.Group;                        // aperçu du niveau visé pendant le drag
@@ -147,15 +168,26 @@ export class StorageRoomViewerComponent implements OnDestroy {
   private roomRoot?: THREE.Object3D;
   private roomBounds?: THREE.Box3;
   private loadedModelUrl: string | null = null;   // évite de recharger/recadrer à chaque reload de layout
+
+  // ── Drill-down (cinématique carton) ──────────────────────────────────────
+  private focusGroup?: THREE.Group;
+  private focusSource?: THREE.Vector3;
+  private cancelAnim?: () => void;
+  private savedCam?: { pos: THREE.Vector3; target: THREE.Vector3; min: number; max: number };
+  private focusBinderMeshes: THREE.Object3D[] = [];
+  private hoveredBinder?: THREE.Object3D;
+  private hoverBaseY = 0;
+  private pendingBinderClick: { id: string; sx: number; sy: number } | null = null;
   private static readonly WALL_MARGIN = 0.5;       // marge intérieure (murs)
 
   // move mode
-  private movingKind: 'box' | 'furniture' | null = null;
+  private movingKind: 'box' | 'furniture' | 'binder' | null = null;
   private movingId: string | null = null;
   private movingObj?: THREE.Object3D;
   private movingOrigin = new THREE.Vector3();
   private movingSnap: { furnitureId: string; level: number } | null = null;
-  private pendingGrab: { kind: 'box' | 'furniture'; id: string; obj: THREE.Object3D; sx: number; sy: number } | null = null;
+  private movingOntoBoxId: string | null = null;   // classeur survolant un carton pendant le déplacement
+  private pendingGrab: { kind: 'box' | 'furniture' | 'binder'; id: string; obj: THREE.Object3D; sx: number; sy: number } | null = null;
 
   constructor() {
     effect(() => {
@@ -169,13 +201,21 @@ export class StorageRoomViewerComponent implements OnDestroy {
       this.boxes(); this.selectedBoxId(); this.binders(); this.furniture(); this.looseBinders();
       if (this.scene && !this.movingId) queueMicrotask(() => this.rebuild());
     });
+    // Met à jour les classeurs du carton focus quand la liste arrive (chargée après le clic).
+    effect(() => {
+      const list = this.binders();
+      if (this.stage() === 'carton' && this.focusGroup) queueMicrotask(() => this.refreshFocusBinders(list));
+    });
+    document.addEventListener('fullscreenchange', this.onFsChange);
   }
 
   ngOnDestroy(): void {
     this.stopPolling();
+    this.cancelAnim?.();
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('pointermove', this.onPointerMove);
     window.removeEventListener('pointerup', this.onPointerUp);
+    document.removeEventListener('fullscreenchange', this.onFsChange);
     this.disposeScene();
   }
 
@@ -247,6 +287,9 @@ export class StorageRoomViewerComponent implements OnDestroy {
 
     const loop = () => {
       this.frameId = requestAnimationFrame(loop);
+      if (this.hoveredBinder) {
+        this.hoveredBinder.position.y = this.hoverBaseY + Math.abs(Math.sin(performance.now() * 0.006)) * 0.05;
+      }
       this.controls?.update();
       this.renderer!.render(this.scene!, this.camera!);
     };
@@ -264,6 +307,13 @@ export class StorageRoomViewerComponent implements OnDestroy {
     this.controls.target.set(center.x, eye, center.z);
     this.controls.maxDistance = Math.max(size.x, size.z) * 1.1;
     this.controls.update();
+  }
+
+  private readonly onFsChange = (): void => this.isFullscreen.set(!!document.fullscreenElement);
+
+  toggleFullscreen(): void {
+    if (document.fullscreenElement) { void document.exitFullscreen(); return; }
+    void this.viewerRoot().nativeElement.requestFullscreen?.();
   }
 
   /** Réinitialise la caméra à la vue par défaut de la salle. */
@@ -308,6 +358,7 @@ export class StorageRoomViewerComponent implements OnDestroy {
     const token = ++this.buildToken;
     this.itemsGroup.clear();
     this.boxMeshes = [];
+    this.binderMeshes = [];
     this.furnitureMeshes = [];
     this.furnitureBounds = [];
 
@@ -367,7 +418,9 @@ export class StorageRoomViewerComponent implements OnDestroy {
       binder.rotation.x = -Math.PI / 2;   // debout comme un classeur rangé
       binder.rotation.z = place.rotY;
       binder.position.set(place.pos.x, place.pos.y + 0.14, place.pos.z);
+      binder.traverse(o => (o.userData['binderId'] = b.id));
       this.itemsGroup.add(binder);
+      this.binderMeshes.push(binder);
     }
   }
 
@@ -375,17 +428,59 @@ export class StorageRoomViewerComponent implements OnDestroy {
   private async addInBoxBinders(cartonPos: THREE.Vector3, token: number): Promise<void> {
     const list = this.binders();
     if (list.length === 0) return;
-    const n = Math.min(list.length, 6);
+    const n = Math.min(list.length, 8);
     for (let i = 0; i < n; i++) {
       let binder: THREE.Object3D;
       try { binder = await loadGltfClone(STORAGE_ASSETS.binderClosed); }
       catch { continue; }
       if (token !== this.buildToken) return;
-      const t = n === 1 ? 0 : (i / (n - 1) - 0.5);
-      binder.rotation.x = -Math.PI / 2;
-      binder.position.set(cartonPos.x + t * 0.42, cartonPos.y + 0.14, cartonPos.z);
+      this.layoutBinderInCarton(binder, i, n, cartonPos.x, cartonPos.z, cartonPos.y + 0.06);
       this.itemsGroup.add(binder);
     }
+  }
+
+  /** Empreinte utile intérieure d'un carton (X × Z, mètres) pour ranger les classeurs à plat. */
+  private static readonly CARTON_INNER_W = 0.44;
+  private static readonly CARTON_INNER_D = 0.32;
+  private static readonly CARTON_COLS = 2;
+  private static readonly CARTON_MAX = 8;
+
+  /**
+   * Range un classeur à plat dans un carton, en vraie **grille 2 colonnes** remplie
+   * de gauche à droite puis de haut en bas (1,2 / 3,4 / …). Chaque classeur est mis
+   * à l'échelle pour tenir dans sa cellule → aucun débordement du carton.
+   */
+  private layoutBinderInCarton(
+    binder: THREE.Object3D, i: number, count: number, cx: number, cz: number, baseY: number,
+  ): void {
+    const V = StorageRoomViewerComponent;
+    const n = Math.min(count, V.CARTON_MAX);
+    const cols = V.CARTON_COLS;
+    const rows = Math.max(1, Math.ceil(n / cols));
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const cellW = V.CARTON_INNER_W / cols;
+    const cellD = V.CARTON_INNER_D / rows;
+
+    // À plat (couverture vers le haut = rotation par défaut du modèle), orienté portrait
+    // (grand axe selon Z = haut→bas de l'écran en vue du dessus).
+    binder.rotation.set(0, 0, 0);
+    binder.scale.setScalar(1);
+    binder.updateMatrixWorld(true);
+    let size = new THREE.Box3().setFromObject(binder).getSize(new THREE.Vector3());
+    if (size.x > size.z) {
+      binder.rotation.y = Math.PI / 2;               // met le grand côté selon Z
+      binder.updateMatrixWorld(true);
+      size = new THREE.Box3().setFromObject(binder).getSize(new THREE.Vector3());
+    }
+
+    // Mise à l'échelle pour tenir dans la cellule (petite marge pour l'espacement).
+    const s = Math.min((cellW * 0.86) / (size.x || 1), (cellD * 0.86) / (size.z || 1));
+    if (isFinite(s) && s > 0) binder.scale.setScalar(s);
+
+    const gx = (col - (cols - 1) / 2) * cellW;        // gauche → droite
+    const gz = (row - (rows - 1) / 2) * cellD;        // haut (fond) → bas (avant)
+    binder.position.set(cx + gx, baseY, cz + gz);
   }
 
   /**
@@ -427,7 +522,9 @@ export class StorageRoomViewerComponent implements OnDestroy {
   // au-delà d'un petit seuil de déplacement → vrai drag ; sinon (relâché sans bouger) → sélection.
   // pointerdown dans le vide → OrbitControls (rotation/pan) comme d'habitude.
   private readonly onPointerDown = (event: PointerEvent): void => {
-    if (event.button !== 0 || !this.renderer || !this.camera) return;
+    if (!this.renderer || !this.camera) return;
+    if (this.stage() === 'carton') { if (event.button === 0) this.cartonPointerDown(event); return; }
+    if (event.button !== 0) return;
     this.setPointer(event);
     this.raycaster.setFromCamera(this.pointer, this.camera);
 
@@ -438,37 +535,71 @@ export class StorageRoomViewerComponent implements OnDestroy {
       if (obj) { this.pendingGrab = { kind: 'box', id, obj, sx: event.clientX, sy: event.clientY }; this.setControlsEnabled(false); }
       return;
     }
-    const pick = this.pickFurniture();
-    if (pick) {
-      const obj = this.furnitureMeshes.find(m => m.userData['furnitureId'] === pick.id);
-      if (obj) { this.pendingGrab = { kind: 'furniture', id: pick.id, obj, sx: event.clientX, sy: event.clientY }; this.setControlsEnabled(false); }
+
+    // Classeurs posés (petits, souvent sur un meuble) : à tester avant les meubles.
+    const binderHit = this.raycaster.intersectObjects(this.binderMeshes, true)[0];
+    if (binderHit) {
+      const id = binderHit.object.userData['binderId'] as string;
+      const obj = this.binderMeshes.find(m => m.userData['binderId'] === id);
+      if (obj) { this.pendingGrab = { kind: 'binder', id, obj, sx: event.clientX, sy: event.clientY }; this.setControlsEnabled(false); }
+      return;
+    }
+
+    if (!this.furnitureLocked()) {
+      const pick = this.pickFurniture();
+      if (pick) {
+        const obj = this.furnitureMeshes.find(m => m.userData['furnitureId'] === pick.id);
+        if (obj) { this.pendingGrab = { kind: 'furniture', id: pick.id, obj, sx: event.clientX, sy: event.clientY }; this.setControlsEnabled(false); }
+      }
     }
     // sinon : rien → la caméra tourne (OrbitControls)
   };
 
   private readonly onPointerUp = (): void => {
+    if (this.stage() === 'carton') {
+      if (this.pendingBinderClick) {
+        const id = this.pendingBinderClick.id;
+        this.pendingBinderClick = null;
+        this.openBinder(id);
+      }
+      return;
+    }
     if (this.movingId) {
       this.finishMove();
     } else if (this.pendingGrab) {
-      // relâché sans avoir bougé → sélection (ouvre le carton)
-      if (this.pendingGrab.kind === 'box') {
-        const box = this.boxes().find(b => b.id === this.pendingGrab!.id);
+      // relâché sans avoir bougé → sélection seule (le récap propose « Ouvrir »)
+      const grab = this.pendingGrab;
+      if (grab.kind === 'box') {
+        const box = this.boxes().find(b => b.id === grab.id);
         if (box) this.boxSelected.emit(box);
+      } else if (grab.kind === 'binder') {
+        const binder = this.looseBinders().find(b => b.id === grab.id);
+        if (binder) this.binderSelected.emit(binder);
       }
       this.setControlsEnabled(true);
     }
     this.pendingGrab = null;
   };
 
-  private beginMove(kind: 'box' | 'furniture', id: string, obj: THREE.Object3D): void {
+  /** Ouvre (drill-down cinématique) le carton d'id donné, commandé depuis le récap. */
+  openBox(boxId: string): void {
+    const obj = this.boxMeshes.find(m => m.userData['boxId'] === boxId);
+    if (obj) this.enterCarton(obj);
+  }
+
+  private beginMove(kind: 'box' | 'furniture' | 'binder', id: string, obj: THREE.Object3D): void {
     this.movingKind = kind;
     this.movingId = id;
     this.movingObj = obj;
     this.movingOrigin.copy(obj.position);
+    this.movingOntoBoxId = null;
     this.moving.set(true);
     if (kind === 'box') {
       const box = this.boxes().find(b => b.id === id);
       if (box) this.boxSelected.emit(box);
+    } else if (kind === 'binder') {
+      const binder = this.looseBinders().find(b => b.id === id);
+      if (binder) this.binderSelected.emit(binder);
     }
   }
 
@@ -477,6 +608,7 @@ export class StorageRoomViewerComponent implements OnDestroy {
   }
 
   private readonly onPointerMove = (event: PointerEvent): void => {
+    if (this.stage() === 'carton') { this.cartonPointerMove(event); return; }
     // Passe en vrai déplacement une fois le seuil franchi.
     if (this.pendingGrab && !this.movingId) {
       const dx = event.clientX - this.pendingGrab.sx, dy = event.clientY - this.pendingGrab.sy;
@@ -488,8 +620,24 @@ export class StorageRoomViewerComponent implements OnDestroy {
     this.setPointer(event);
     this.raycaster.setFromCamera(this.pointer, this.camera);
 
-    // Un carton en cours de déplacement s'aimante à un niveau de meuble s'il le survole.
-    if (this.movingKind === 'box') {
+    // Un classeur en déplacement s'aimante d'abord à un carton survolé (rangement dedans).
+    if (this.movingKind === 'binder') {
+      const boxHit = this.raycaster.intersectObjects(this.boxMeshes, true)[0];
+      if (boxHit) {
+        const boxId = boxHit.object.userData['boxId'] as string;
+        const target = this.boxMeshes.find(m => m.userData['boxId'] === boxId);
+        if (target) {
+          this.movingObj.position.set(target.position.x, target.position.y + 0.28, target.position.z);
+          this.movingOntoBoxId = boxId;
+          this.movingSnap = null;
+          return;
+        }
+      }
+      this.movingOntoBoxId = null;
+    }
+
+    // Un carton/classeur en déplacement s'aimante à un niveau de meuble s'il le survole.
+    if (this.movingKind === 'box' || this.movingKind === 'binder') {
       const pick = this.pickFurniture();
       if (pick) {
         const levels = FURNITURE_LEVEL_Y[pick.type];
@@ -510,8 +658,185 @@ export class StorageRoomViewerComponent implements OnDestroy {
   };
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
-    if (event.key === 'Escape' && this.movingId) this.cancelMove();
+    if (event.key !== 'Escape') return;
+    if (this.stage() === 'carton') { this.exitCarton(); return; }
+    if (this.movingId) this.cancelMove();
   };
+
+  // ── Cinématique carton (drill-down étape 1) ─────────────────────────────────
+  private enterCarton(sourceObj: THREE.Object3D): void {
+    if (!this.camera || !this.controls || !this.scene || this.stage() === 'carton') return;
+    this.cancelAnim?.();
+    this.stage.set('carton');
+
+    const b = this.roomBounds;
+    const center = new THREE.Vector3(b ? (b.min.x + b.max.x) / 2 : 0, 0, b ? (b.min.z + b.max.z) / 2 : 0);
+
+    // Groupe focus (clone) posé sur le carton source, masque le reste de la scène.
+    const group = new THREE.Group();
+    group.position.copy(sourceObj.position);
+    group.rotation.y = sourceObj.rotation.y;
+    this.scene.add(group);
+    this.focusGroup = group;
+    this.focusSource = sourceObj.position.clone();
+    this.itemsGroup.visible = false;
+
+    loadGltfClone(STORAGE_ASSETS.cartonOpen).then(carton => {
+      if (this.focusGroup !== group) return;
+      carton.name = '__fcarton';
+      group.add(carton);
+      this.refreshFocusBinders(this.binders());
+    }).catch(() => {});
+
+    // Sauvegarde caméra + cinématique.
+    this.savedCam = {
+      pos: this.camera.position.clone(), target: this.controls.target.clone(),
+      min: this.controls.minDistance, max: this.controls.maxDistance,
+    };
+    this.controls.enabled = false;
+    const fromPos = this.camera.position.clone();
+    const fromTarget = this.controls.target.clone();
+    const fromGroup = group.position.clone();
+    const cartonCenter = center.clone().setY(0.18);
+    const dest = this.framePose(cartonCenter, new THREE.Vector3(0.54, 0.36, 0.36), 0.85);
+
+    this.cancelAnim = tween({
+      durationMs: 650,
+      onUpdate: k => {
+        group.position.lerpVectors(fromGroup, center, k);
+        this.camera!.position.lerpVectors(fromPos, dest.position, k);
+        this.controls!.target.lerpVectors(fromTarget, dest.target, k);
+        this.controls!.update();
+      },
+      onDone: () => {
+        this.controls!.target.copy(dest.target);
+        this.controls!.enabled = false;     // caméra verrouillée dans le carton (vue du dessus figée)
+        this.controls!.update();
+      },
+    });
+  }
+
+  exitCarton(): void {
+    if (!this.camera || !this.controls || this.stage() !== 'carton') return;
+    this.cancelAnim?.();
+    const group = this.focusGroup;
+    const saved = this.savedCam;
+    const fromPos = this.camera.position.clone();
+    const fromTarget = this.controls.target.clone();
+    const fromGroup = group?.position.clone();
+    const toGroup = this.focusSource?.clone();
+    this.controls.enabled = false;
+
+    this.cancelAnim = tween({
+      durationMs: 550,
+      onUpdate: k => {
+        if (group && fromGroup && toGroup) group.position.lerpVectors(fromGroup, toGroup, k);
+        if (saved) {
+          this.camera!.position.lerpVectors(fromPos, saved.pos, k);
+          this.controls!.target.lerpVectors(fromTarget, saved.target, k);
+          this.controls!.update();
+        }
+      },
+      onDone: () => {
+        if (group) this.scene?.remove(group);
+        this.focusGroup = undefined;
+        this.focusSource = undefined;
+        this.focusBinderMeshes = [];
+        this.hoveredBinder = undefined;
+        this.pendingBinderClick = null;
+        this.itemsGroup.visible = true;
+        if (saved && this.controls) {
+          this.controls.minDistance = saved.min;
+          this.controls.maxDistance = saved.max;
+          this.controls.enabled = true;
+        }
+        this.stage.set('room');
+      },
+    });
+  }
+
+  /** (Re)construit les classeurs (cliquables) dans le carton focus. */
+  private refreshFocusBinders(list: StorageBinderDto[]): void {
+    const group = this.focusGroup;
+    if (!group) return;
+    for (const child of [...group.children]) {
+      if (child.name === '__fbinder') group.remove(child);
+    }
+    this.focusBinderMeshes = [];
+    this.hoveredBinder = undefined;
+    const n = Math.min(list.length, 8);
+    for (let i = 0; i < n; i++) {
+      const binderId = list[i].id;
+      loadGltfClone(STORAGE_ASSETS.binderClosed).then(binder => {
+        if (this.focusGroup !== group) return;
+        binder.name = '__fbinder';
+        this.layoutBinderInCarton(binder, i, n, 0, 0, 0.06);
+        binder.userData['binderId'] = binderId;
+        binder.traverse(o => (o.userData['binderId'] = binderId));
+        group.add(binder);
+        this.focusBinderMeshes.push(binder);
+      }).catch(() => {});
+    }
+  }
+
+  /** Pose caméra telle que l'objet (bbox `size`) occupe `fill` de la hauteur de vue, vu de dessus. */
+  private framePose(center: THREE.Vector3, size: THREE.Vector3, fill: number):
+    { position: THREE.Vector3; target: THREE.Vector3; distance: number } {
+    const fov = (this.camera!.fov * Math.PI) / 180;
+    const objH = Math.max(size.x, size.y, size.z);
+    const distance = (objH / 2) / (Math.tan(fov / 2) * fill);
+    const dir = new THREE.Vector3(0, 1, 0.0001).normalize(); // pile à la verticale (le ε évite le gimbal lock)
+    return { position: center.clone().add(dir.multiplyScalar(distance)), target: center.clone(), distance };
+  }
+
+  // ── Classeurs interactifs dans le carton focus ─────────────────────────────
+  private cartonPointerDown(event: PointerEvent): void {
+    if (!this.renderer || !this.camera || this.focusBinderMeshes.length === 0) return;
+    this.setPointer(event);
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    const hit = this.raycaster.intersectObjects(this.focusBinderMeshes, true)[0];
+    const id = hit ? (hit.object.userData['binderId'] as string | undefined) : undefined;
+    if (id) this.pendingBinderClick = { id, sx: event.clientX, sy: event.clientY };
+  }
+
+  private cartonPointerMove(event: PointerEvent): void {
+    // un déplacement au-delà du seuil = orbite → annule le clic classeur
+    if (this.pendingBinderClick) {
+      const dx = event.clientX - this.pendingBinderClick.sx, dy = event.clientY - this.pendingBinderClick.sy;
+      if (dx * dx + dy * dy > 25) this.pendingBinderClick = null;
+    }
+    // hover (bouton relâché) → bounce
+    if (event.buttons === 0 && this.renderer && this.camera) {
+      this.setPointer(event);
+      this.raycaster.setFromCamera(this.pointer, this.camera);
+      const hit = this.raycaster.intersectObjects(this.focusBinderMeshes, true)[0];
+      const id = hit ? (hit.object.userData['binderId'] as string | undefined) : undefined;
+      const mesh = id ? this.focusBinderMeshes.find(m => m.userData['binderId'] === id) : undefined;
+      if (mesh !== this.hoveredBinder) {
+        if (this.hoveredBinder) this.hoveredBinder.position.y = this.hoverBaseY;
+        this.hoveredBinder = mesh;
+        if (mesh) this.hoverBaseY = mesh.position.y;
+      }
+    }
+  }
+
+  /** Petit « pop » du classeur puis émission → l'overlay classeur s'ouvre côté conteneur. */
+  private openBinder(id: string): void {
+    const mesh = this.focusBinderMeshes.find(m => m.userData['binderId'] === id);
+    if (!mesh) { this.binderOpened.emit(id); return; }
+    if (this.hoveredBinder === mesh) { this.hoveredBinder = undefined; }
+    const baseY = this.hoverBaseY || mesh.position.y;
+    mesh.position.y = baseY;
+    this.cancelAnim?.();
+    this.cancelAnim = tween({
+      durationMs: 300,
+      onUpdate: k => { mesh.position.y = baseY + k * 0.4; mesh.scale.setScalar(1 + k * 0.15); },
+      onDone: () => {
+        mesh.position.y = baseY; mesh.scale.setScalar(1);
+        this.binderOpened.emit(id);
+      },
+    });
+  }
 
   private finishMove(): void {
     if (!this.movingId || !this.movingObj) return;
@@ -524,6 +849,20 @@ export class StorageRoomViewerComponent implements OnDestroy {
         });
       } else {
         this.boxDropped.emit({ boxId: this.movingId, x: +p.x.toFixed(3), y: 0, z: +p.z.toFixed(3) });
+      }
+    } else if (this.movingKind === 'binder') {
+      if (this.movingOntoBoxId) {
+        this.binderDroppedOnBox.emit({ binderId: this.movingId, boxId: this.movingOntoBoxId });
+      } else if (this.movingSnap) {
+        this.itemDroppedOnFurniture.emit({
+          kind: 'binder', itemId: this.movingId,
+          furnitureId: this.movingSnap.furnitureId, levelIndex: this.movingSnap.level,
+        });
+      } else {
+        // Un classeur ne se pose pas au sol : on annule le déplacement.
+        this.toast.info('Un classeur se range dans un carton ou sur un meuble.');
+        this.cancelMove();
+        return;
       }
     } else {
       this.furnitureFloorDropped.emit({ furnitureId: this.movingId, x: +p.x.toFixed(3), y: 0, z: +p.z.toFixed(3) });
@@ -541,6 +880,7 @@ export class StorageRoomViewerComponent implements OnDestroy {
     this.movingId = null;
     this.movingObj = undefined;
     this.movingSnap = null;
+    this.movingOntoBoxId = null;
     this.pendingGrab = null;
     this.moving.set(false);
     this.setControlsEnabled(true);
@@ -642,7 +982,16 @@ export class StorageRoomViewerComponent implements OnDestroy {
       return;
     }
 
-    // carton / classeur : d'abord tester un dépôt sur un meuble (intersection rayon ↔ bbox)
+    // classeur : d'abord tester un dépôt sur un carton (rangement dedans)
+    if (kind === 'binder') {
+      const boxHit = this.raycaster.intersectObjects(this.boxMeshes, true)[0];
+      if (boxHit) {
+        this.binderDroppedOnBox.emit({ binderId: id, boxId: boxHit.object.userData['boxId'] as string });
+        return;
+      }
+    }
+
+    // carton / classeur : ensuite tester un dépôt sur un meuble (intersection rayon ↔ bbox)
     const pick = this.pickFurniture();
     if (pick) {
       const level = this.nearestLevelIndex(pick.point.y - pick.baseY, pick.type);
@@ -698,6 +1047,7 @@ export class StorageRoomViewerComponent implements OnDestroy {
     this.camera = undefined;
     this.itemsGroup = new THREE.Group();
     this.boxMeshes = [];
+    this.binderMeshes = [];
     this.furnitureMeshes = [];
     this.furnitureBounds = [];
     this.ghost = undefined;

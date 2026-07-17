@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ContentPage
+    x:Class="Pokekool.Mobile.Views.Client.ShopMessagesPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Messagerie">
+
+    <!-- Placeholder : les contrats API messagerie ne sont pas encore exposés (cf. Messagerie-Feature).
+         Écran branché dès que les endpoints existent, comme sur le web. -->
+    <VerticalStackLayout Padding="32" Spacing="12" VerticalOptions="Center">
+        <Label Text="💬" FontSize="48" HorizontalOptions="Center" />
+        <Label Text="Bientôt disponible" Style="{StaticResource TitleLabel}" HorizontalOptions="Center" />
+        <Label Text="La messagerie avec la boutique arrive prochainement."
+               Style="{StaticResource SubtleLabel}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
+    </VerticalStackLayout>
+</ContentPage>

@@ -8,6 +8,9 @@ public interface IPurchaseRequestRepository
 
     Task<PurchaseRequest?> GetByIdAsync(Guid id, CancellationToken ct = default);
 
+    /// <summary>Nombre de clients actuellement intéressés (demandes Pending/Contacted) par un article.</summary>
+    Task<int> CountActiveByProductAsync(Guid shopProductId, CancellationToken ct = default);
+
     /// <summary>Liste paginée pour l'admin, filtrable par statut.</summary>
     Task<(IReadOnlyList<PurchaseRequestProjection> Items, long TotalCount)> GetPagedAsync(
         PurchaseRequestStatus? status,

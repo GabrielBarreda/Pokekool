@@ -18,6 +18,7 @@ using Pokekool.Application.Shop.Queries.GetShopAppointmentById;
 using Pokekool.Application.Shop.Queries.GetShopPlvModel;
 using Pokekool.Application.Shop.Queries.GetShopAppointments;
 using Pokekool.Application.Shop.Queries.GetShopInfo;
+using Pokekool.Application.Shop.Queries.GetProductInterest;
 using Pokekool.Application.Shop.Queries.GetShopProducts;
 using Pokekool.Application.Shop.Queries.GetShopStock;
 using Pokekool.Application.Storage.Queries;
@@ -85,7 +86,7 @@ public sealed class AdminShopController : BaseApiController
     [ProducesResponseType(typeof(StorageCompileJobDto), StatusCodes.Status202Accepted)]
     [SwaggerOperation(Summary = "Uploader le projet Blender (.blend) de la PLV — compilation .glb asynchrone")]
     public async Task<ActionResult<StorageCompileJobDto>> UploadPlvModel(
-        [FromForm] IFormFile file, CancellationToken ct = default)
+        IFormFile file, CancellationToken ct = default)
     {
         if (file is null || file.Length == 0)
             return BadRequest(new { message = "Fichier .blend manquant ou vide." });
@@ -119,6 +120,13 @@ public sealed class AdminShopController : BaseApiController
         [FromQuery] int pageSize = 50,
         CancellationToken ct = default)
         => Ok(await _mediator.Send(new GetShopProductsQuery(type, isAvailable, search, page, pageSize), ct));
+
+    [HttpGet("products/{id:guid}/interest")]
+    [RequirePermission(Permissions.ShopRead)]
+    [ProducesResponseType(typeof(ProductInterestDto), StatusCodes.Status200OK)]
+    [SwaggerOperation(Summary = "Nombre de clients intéressés (demandes d'achat actives) par un article")]
+    public async Task<ActionResult<ProductInterestDto>> GetProductInterest(Guid id, CancellationToken ct = default)
+        => Ok(await _mediator.Send(new GetProductInterestQuery(id), ct));
 
     [HttpPost("products")]
     [RequirePermission(Permissions.ShopWrite)]

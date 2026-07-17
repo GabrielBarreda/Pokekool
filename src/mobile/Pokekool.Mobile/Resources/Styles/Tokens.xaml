@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  GÉNÉRÉ AUTOMATIQUEMENT - NE PAS MODIFIER À LA MAIN
+
+  Source : design-system/tokens.json
+  Script : design-system/export-maui.js
+  Pour régénérer : npm run tokens:build
+  Date    : 2026-07-16T16:57:10.414Z
+-->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:sys="clr-namespace:System;assembly=netstandard">
+
+    <!-- ===== COLOR ===== -->
+    <Color x:Key="ColorBrandPrimary">#FF8B5CF6</Color>
+    <Color x:Key="ColorBrandPrimaryHover">#FFB73B07</Color>
+    <Color x:Key="ColorBrandPrimaryActive">#FF9C3304</Color>
+    <Color x:Key="ColorBrandPrimarySubtle">#FFFFF4EE</Color>
+    <Color x:Key="ColorBrandOnPrimary">#FFFFFFFF</Color>
+    <Color x:Key="ColorNeutral0">#FFFFFFFF</Color>
+    <Color x:Key="ColorNeutral50">#FFF8F9FA</Color>
+    <Color x:Key="ColorNeutral100">#FFF1F3F5</Color>
+    <Color x:Key="ColorNeutral200">#FFE9ECEF</Color>
+    <Color x:Key="ColorNeutral300">#FFDEE2E6</Color>
+    <Color x:Key="ColorNeutral400">#FFCED4DA</Color>
+    <Color x:Key="ColorNeutral500">#FFADB5BD</Color>
+    <Color x:Key="ColorNeutral600">#FF868E96</Color>
+    <Color x:Key="ColorNeutral700">#FF495057</Color>
+    <Color x:Key="ColorNeutral800">#FF343A40</Color>
+    <Color x:Key="ColorNeutral900">#FF212529</Color>
+    <Color x:Key="ColorNeutral1000">#FF0B0D0E</Color>
+    <Color x:Key="ColorSemanticSuccess">#FF2F9E44</Color>
+    <Color x:Key="ColorSemanticSuccessSubtle">#FFEBFBEE</Color>
+    <Color x:Key="ColorSemanticWarning">#FFF59F00</Color>
+    <Color x:Key="ColorSemanticWarningSubtle">#FFFFF9DB</Color>
+    <Color x:Key="ColorSemanticDanger">#FFE03131</Color>
+    <Color x:Key="ColorSemanticDangerSubtle">#FFFFF5F5</Color>
+    <Color x:Key="ColorSemanticInfo">#FF1971C2</Color>
+    <Color x:Key="ColorSemanticInfoSubtle">#FFE7F5FF</Color>
+    <Color x:Key="ColorSurfaceBase">#FFFFFFFF</Color>
+    <Color x:Key="ColorSurfaceRaised">#FFF8F9FA</Color>
+    <Color x:Key="ColorSurfaceSunken">#FFF1F3F5</Color>
+    <Color x:Key="ColorSurfaceOverlay">#99212529</Color>
+    <Color x:Key="ColorTextPrimary">#FF212529</Color>
+    <Color x:Key="ColorTextSecondary">#FF495057</Color>
+    <Color x:Key="ColorTextMuted">#FF868E96</Color>
+    <Color x:Key="ColorTextDisabled">#FFADB5BD</Color>
+    <Color x:Key="ColorTextInverse">#FFFFFFFF</Color>
+    <Color x:Key="ColorBorderSubtle">#FFE9ECEF</Color>
+    <Color x:Key="ColorBorderDefault">#FFDEE2E6</Color>
+    <Color x:Key="ColorBorderStrong">#FFADB5BD</Color>
+    <Color x:Key="ColorBorderFocus">#FFD9480F</Color>
+
+    <!-- ===== TYPOGRAPHY ===== -->
+    <x:String x:Key="FontFamilySans">Inter</x:String>
+    <x:String x:Key="FontFamilyMono">JetBrains Mono</x:String>
+    <x:Double x:Key="FontSizeXs">12</x:Double>
+    <x:Double x:Key="FontSizeSm">14</x:Double>
+    <x:Double x:Key="FontSizeMd">16</x:Double>
+    <x:Double x:Key="FontSizeLg">18</x:Double>
+    <x:Double x:Key="FontSizeXl">20</x:Double>
+    <x:Double x:Key="FontSize2xl">24</x:Double>
+    <x:Double x:Key="FontSize3xl">32</x:Double>
+    <x:Double x:Key="FontSize4xl">40</x:Double>
+    <x:Double x:Key="FontSizeDisplay">48</x:Double>
+    <x:Int32 x:Key="FontWeightRegular">400</x:Int32>
+    <x:Int32 x:Key="FontWeightMedium">500</x:Int32>
+    <x:Int32 x:Key="FontWeightSemibold">600</x:Int32>
+    <x:Int32 x:Key="FontWeightBold">700</x:Int32>
+    <x:Double x:Key="LineHeightTight">1.2</x:Double>
+    <x:Double x:Key="LineHeightSnug">1.35</x:Double>
+    <x:Double x:Key="LineHeightNormal">1.5</x:Double>
+    <x:Double x:Key="LineHeightRelaxed">1.75</x:Double>
+    <x:Double x:Key="LetterSpacingTight">-0.01</x:Double>
+    <x:Double x:Key="LetterSpacingNormal">0</x:Double>
+    <x:Double x:Key="LetterSpacingWide">0.04</x:Double>
+
+    <!-- ===== SPACING ===== -->
+    <x:Double x:Key="Space0">0</x:Double>
+    <x:Double x:Key="Space1">4</x:Double>
+    <x:Double x:Key="Space2">8</x:Double>
+    <x:Double x:Key="Space3">12</x:Double>
+    <x:Double x:Key="Space4">16</x:Double>
+    <x:Double x:Key="Space5">20</x:Double>
+    <x:Double x:Key="Space6">24</x:Double>
+    <x:Double x:Key="Space8">32</x:Double>
+    <x:Double x:Key="Space10">40</x:Double>
+    <x:Double x:Key="Space12">48</x:Double>
+    <x:Double x:Key="Space16">64</x:Double>
+    <x:Double x:Key="Space20">80</x:Double>
+    <x:Double x:Key="Space24">96</x:Double>
+
+    <!-- ===== RADIUS ===== -->
+    <x:Double x:Key="RadiusNone">0</x:Double>
+    <x:Double x:Key="RadiusSm">4</x:Double>
+    <x:Double x:Key="RadiusMd">8</x:Double>
+    <x:Double x:Key="RadiusLg">12</x:Double>
+    <x:Double x:Key="RadiusXl">16</x:Double>
+    <x:Double x:Key="Radius2xl">24</x:Double>
+    <x:Double x:Key="RadiusFull">9999</x:Double>
+
+    <!-- ===== SHADOW ===== -->
+    <!-- ShadowNone : utiliser <Shadow Brush="..." Offset="..." Radius="..."/> à la main -->
+    <!-- ShadowSm : utiliser <Shadow Brush="..." Offset="..." Radius="..."/> à la main -->
+    <!-- ShadowMd : utiliser <Shadow Brush="..." Offset="..." Radius="..."/> à la main -->
+    <!-- ShadowLg : utiliser <Shadow Brush="..." Offset="..." Radius="..."/> à la main -->
+    <!-- ShadowXl : utiliser <Shadow Brush="..." Offset="..." Radius="..."/> à la main -->
+    <!-- ShadowInner : utiliser <Shadow Brush="..." Offset="..." Radius="..."/> à la main -->
+
+    <!-- ===== MOTION ===== -->
+    <sys:TimeSpan x:Key="DurationInstant">00:00:0.0000000</sys:TimeSpan>
+    <sys:TimeSpan x:Key="DurationFast">00:00:0.1500000</sys:TimeSpan>
+    <sys:TimeSpan x:Key="DurationNormal">00:00:0.2500000</sys:TimeSpan>
+    <sys:TimeSpan x:Key="DurationSlow">00:00:0.4000000</sys:TimeSpan>
+    <sys:TimeSpan x:Key="DurationSlower">00:00:0.6000000</sys:TimeSpan>
+    <!-- EasingStandard : easings MAUI à mapper manuellement (Easing.CubicInOut...) -->
+    <!-- EasingDecelerate : easings MAUI à mapper manuellement (Easing.CubicInOut...) -->
+    <!-- EasingAccelerate : easings MAUI à mapper manuellement (Easing.CubicInOut...) -->
+    <!-- EasingSharp : easings MAUI à mapper manuellement (Easing.CubicInOut...) -->
+
+    <!-- ===== Z-INDEX ===== -->
+    <x:Int32 x:Key="ZBase">0</x:Int32>
+    <x:Int32 x:Key="ZRaised">10</x:Int32>
+    <x:Int32 x:Key="ZDropdown">100</x:Int32>
+    <x:Int32 x:Key="ZSticky">200</x:Int32>
+    <x:Int32 x:Key="ZOverlay">1000</x:Int32>
+    <x:Int32 x:Key="ZModal">1100</x:Int32>
+    <x:Int32 x:Key="ZPopover">1200</x:Int32>
+    <x:Int32 x:Key="ZToast">1300</x:Int32>
+    <x:Int32 x:Key="ZTooltip">1400</x:Int32>
+
+    <!-- ===== BREAKPOINT ===== -->
+    <x:Double x:Key="BreakpointXs">0</x:Double>
+    <x:Double x:Key="BreakpointSm">576</x:Double>
+    <x:Double x:Key="BreakpointMd">768</x:Double>
+    <x:Double x:Key="BreakpointLg">992</x:Double>
+    <x:Double x:Key="BreakpointXl">1200</x:Double>
+    <x:Double x:Key="Breakpoint2xl">1400</x:Double>
+
+</ResourceDictionary>

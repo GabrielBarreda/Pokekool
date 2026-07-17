@@ -139,7 +139,7 @@ public sealed class AdminSyncController : BaseApiController
     /// </summary>
     [HttpGet("progress")]
     [AllowAnonymous]
-    [SwaggerOperation(Summary = "SSE — progression du sync prix")]
+    [ApiExplorerSettings(IgnoreApi = true)] // SSE — retourne Task brut, non représentable en OpenAPI
     public async Task GetSyncProgress(CancellationToken ct)
     {
         Response.Headers["Content-Type"]      = "text/event-stream";

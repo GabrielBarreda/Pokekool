@@ -34,10 +34,22 @@ internal sealed class AssignStorageLocationCommandHandler
         _ = await _binderRepo.GetByIdAsync(request.BinderId, ct)
             ?? throw new DomainException("storage.binder.not_found", "Classeur introuvable.");
 
-        var location = StorageLocation.Create(
-            request.BinderId, request.OwnerType, request.OwnerId, request.SlotPosition);
+        // Une carte est rangée dans au plus un classeur : si elle l'est déjà, on la DÉPLACE
+        // (mise à jour) au lieu de créer un doublon.
+        var existing = await _repo.FindByOwnerAsync(request.OwnerType, request.OwnerId, ct);
+        StorageLocation location;
+        if (existing is not null)
+        {
+            existing.MoveTo(request.BinderId, request.SlotPosition);
+            location = existing;
+        }
+        else
+        {
+            location = StorageLocation.Create(
+                request.BinderId, request.OwnerType, request.OwnerId, request.SlotPosition);
+            await _repo.AddAsync(location, ct);
+        }
 
-        await _repo.AddAsync(location, ct);
         await _uow.SaveChangesAsync(ct);
         return StorageMapper.ToDto(location);
     }

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Shell
+    x:Class="Pokekool.Mobile.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:views="clr-namespace:Pokekool.Mobile.Views"
+    xmlns:admin="clr-namespace:Pokekool.Mobile.Views.Admin"
+    xmlns:client="clr-namespace:Pokekool.Mobile.Views.Client"
+    xmlns:shared="clr-namespace:Pokekool.Mobile.Views.Shared"
+    Shell.FlyoutBehavior="Disabled"
+    Title="Pokekool">
+
+    <!-- ============ LOGIN (hors TabBar) ============ -->
+    <ShellContent
+        Route="login"
+        Shell.NavBarIsVisible="False"
+        ContentTemplate="{DataTemplate views:LoginPage}" />
+
+    <!-- ============ TABBAR ADMIN (admin / super_admin / employee) ============ -->
+    <TabBar Route="admin">
+        <Tab Title="Pokémon" Route="admin-pokemon">
+            <ShellContent Route="bourse" Title="Bourse" ContentTemplate="{DataTemplate admin:BoursePage}" />
+            <ShellContent Route="scan" Title="Scan" ContentTemplate="{DataTemplate shared:ScanPage}" />
+            <ShellContent Route="collection" Title="Collection" ContentTemplate="{DataTemplate shared:CollectionPage}" />
+            <ShellContent Route="a-vendre" Title="À vendre" ContentTemplate="{DataTemplate admin:CardsForSalePage}" />
+        </Tab>
+        <Tab Title="Boutique" Route="admin-boutique">
+            <ShellContent Route="presentoir" Title="Présentoir" ContentTemplate="{DataTemplate admin:PresentoirPage}" />
+            <ShellContent Route="stock" Title="Stock" ContentTemplate="{DataTemplate admin:StockPage}" />
+            <ShellContent Route="planning" Title="Planning" ContentTemplate="{DataTemplate admin:PlanningPage}" />
+            <ShellContent Route="stockage" Title="Stockage" ContentTemplate="{DataTemplate admin:StoragePage}" />
+            <ShellContent Route="demandes" Title="Demandes" ContentTemplate="{DataTemplate admin:PurchaseRequestsPage}" />
+            <ShellContent Route="infos" Title="Infos" ContentTemplate="{DataTemplate admin:ShopInfoPage}" />
+            <ShellContent Route="assistant" Title="Assistant" ContentTemplate="{DataTemplate admin:AssistantPage}" />
+        </Tab>
+        <Tab Title="Paramètres" Route="admin-parametres">
+            <ShellContent Route="profil" Title="Profil" ContentTemplate="{DataTemplate admin:ProfilePage}" />
+            <ShellContent Route="utilisateurs" Title="Utilisateurs" ContentTemplate="{DataTemplate admin:UsersAdminPage}" />
+            <ShellContent Route="roles" Title="Rôles" ContentTemplate="{DataTemplate admin:RolesPage}" />
+            <ShellContent Route="providers" Title="Providers" ContentTemplate="{DataTemplate admin:ProvidersPage}" />
+        </Tab>
+    </TabBar>
+
+    <!-- ============ TABBAR CLIENT ============ -->
+    <TabBar Route="client">
+        <Tab Title="Boutique" Route="client-boutique">
+            <ShellContent Route="catalogue" Title="Catalogue" ContentTemplate="{DataTemplate client:CatalogPage}" />
+            <ShellContent Route="rdv" Title="Prendre RDV" ContentTemplate="{DataTemplate client:BookAppointmentPage}" />
+            <ShellContent Route="mes-rdv" Title="Mes RDV" ContentTemplate="{DataTemplate client:MyAppointmentsPage}" />
+            <ShellContent Route="messagerie" Title="Messages" ContentTemplate="{DataTemplate client:ShopMessagesPage}" />
+        </Tab>
+        <Tab Title="Collection" Route="client-collection">
+            <ShellContent Route="ma-collection" Title="Ma collection" ContentTemplate="{DataTemplate shared:CollectionPage}" />
+            <ShellContent Route="scan" Title="Scan" ContentTemplate="{DataTemplate shared:ScanPage}" />
+            <ShellContent Route="alertes" Title="Alertes" ContentTemplate="{DataTemplate client:AlertsPage}" />
+        </Tab>
+    </TabBar>
+
+</Shell>
