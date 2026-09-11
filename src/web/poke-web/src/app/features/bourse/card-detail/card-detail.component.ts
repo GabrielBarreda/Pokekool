@@ -20,7 +20,7 @@ import { ThemeStore } from '@core/theme/theme.store';
     <div class="backdrop" (click)="closed.emit()"></div>
 
     <!-- Drawer -->
-    <aside class="drawer" role="dialog" aria-modal="true" [attr.aria-label]="card.name + ' — détail'">
+    <aside class="drawer" role="dialog" aria-modal="true" [attr.aria-label]="(card.displayName || card.name) + ' — détail'">
 
       <!-- Header -->
       <div class="drawer-header">
@@ -29,10 +29,10 @@ import { ThemeStore } from '@core/theme/theme.store';
                tournoyant) par le parent (market-list) — pas besoin de la
                dupliquer ici. -->
           @if (card.imageSmall && !themeStore.isPokemon()) {
-            <img [src]="card.imageLarge ?? card.imageSmall" [alt]="card.name" class="header-img" />
+            <img [src]="card.imageLarge ?? card.imageSmall" [alt]="card.displayName || card.name" class="header-img" />
           }
           <div class="header-text">
-            <h2 class="header-name">{{ card.name }}</h2>
+            <h2 class="header-name">{{ card.displayName || card.name }}</h2>
             <div class="header-meta">
               <span class="meta-chip">#{{ card.number }}</span>
               @if (card.supertype) { <span class="meta-chip">{{ card.supertype }}</span> }

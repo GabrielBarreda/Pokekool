@@ -11,6 +11,7 @@ import { routes } from './app.routes';
 import { jwtInterceptor } from '@core/interceptors/jwt.interceptor';
 import { errorInterceptor } from '@core/interceptors/error.interceptor';
 import { loaderInterceptor } from '@core/interceptors/loader.interceptor';
+import { displayLanguageInterceptor } from '@core/interceptors/display-language.interceptor';
 import { ThemeService } from '@core/services/theme.service';
 import { ThemeStore } from '@core/theme/theme.store';
 
@@ -21,7 +22,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes, withComponentInputBinding(), withViewTransitions()),
     provideHttpClient(
       withFetch(),
-      withInterceptors([loaderInterceptor, jwtInterceptor, errorInterceptor]),
+      withInterceptors([loaderInterceptor, jwtInterceptor, displayLanguageInterceptor, errorInterceptor]),
     ),
     provideAnimationsAsync(),
     {

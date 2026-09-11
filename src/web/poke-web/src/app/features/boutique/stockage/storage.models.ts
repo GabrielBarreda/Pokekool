@@ -124,7 +124,10 @@ export interface StoragePricePointDto {
 
 export interface StorageCardDetailDto {
   cardId: string | null;
+  tcgId: string | null;
   name: string;
+  /** Nom traduit selon la langue d'affichage préférée du client (résolu serveur). */
+  displayName: string | null;
   setName: string | null;
   imageSmall: string | null;
   imageLarge: string | null;
@@ -143,7 +146,10 @@ export interface StorageBinderCardDto {
   ownerType: string;
   ownerId: string;
   cardId: string | null;
+  tcgId: string | null;
   name: string;
+  /** Nom traduit selon la langue d'affichage préférée du client (résolu serveur). */
+  displayName: string | null;
   imageSmall: string | null;
   imageLarge: string | null;
   setName: string | null;
@@ -224,7 +230,10 @@ export interface ShopStockDto {
   id: string;
   shopId: string;
   cardId: string | null;
+  cardTcgId: string | null;
   cardName: string | null;
+  /** Nom traduit selon la langue d'affichage préférée du client (résolu serveur). */
+  displayName: string | null;
   cardImage: string | null;
   productName: string | null;
   type: string;
@@ -252,7 +261,10 @@ export interface PagedResult<T> {
 // ── Scan classeur ─────────────────────────────────────────────────────────────
 export interface CardScanMatchDto {
   cardId: string | null;
+  cardTcgId: string | null;
   cardName: string | null;
+  /** Nom traduit selon la langue d'affichage préférée du client (résolu serveur). */
+  displayName: string | null;
   setName: string | null;
   cardNumber: string | null;
   imageSmall: string | null;

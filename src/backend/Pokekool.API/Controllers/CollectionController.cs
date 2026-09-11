@@ -83,6 +83,8 @@ public sealed class CollectionController : BaseApiController
     [SwaggerOperation(Summary = "Scan a photo and detect Pokémon cards via Vision LLM")]
     public async Task<ActionResult<ScanCollectionResult>> ScanImage(
         IFormFile image,
+        [FromForm] List<string>? excluded,
+        [FromForm] List<Guid>? excludedCardIds,
         CancellationToken ct)
     {
         if (image is null || image.Length == 0)
@@ -94,7 +96,7 @@ public sealed class CollectionController : BaseApiController
         await image.CopyToAsync(ms, ct);
         var base64 = Convert.ToBase64String(ms.ToArray());
 
-        return Ok(await _mediator.Send(new ScanCollectionCommand(base64), ct));
+        return Ok(await _mediator.Send(new ScanCollectionCommand(base64, excluded, excludedCardIds), ct));
     }
 
     [HttpPost("bulk-own")]

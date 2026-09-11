@@ -16,7 +16,9 @@ public record DashboardSummaryDto(
 
 public record RecentlyScrapedCardDto(
     string   CardId,
+    string?  TcgId,
     string   Name,
+    string   DisplayName,
     string?  ImageSmall,
     string   SetName,
     string?  Rarity,
@@ -28,7 +30,9 @@ public record RecentlyScrapedCardDto(
 
 public record ForSaleCardDto(
     string   CardId,
+    string?  TcgId,
     string   Name,
+    string   DisplayName,
     string?  ImageSmall,
     decimal  SalePrice,
     string   Currency,

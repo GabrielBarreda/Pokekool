@@ -35,6 +35,8 @@ export interface MarketCardDto {
   tcgId: string;
   number: string;
   name: string;
+  /** Nom traduit selon la langue d'affichage préférée du client (résolu serveur). */
+  displayName: string | null;
   supertype: string | null;
   rarity: string | null;
   types: string[] | null;
@@ -127,7 +129,7 @@ export interface SyncProgressEvent {
   grades: string[];     // ["PSA7","PSA8","PSA9","PSA10"]
   success: boolean;
   timestamp: string;
-  syncType: 'prices' | 'population' | 'catalog';  // type de sync en cours
+  syncType: 'prices' | 'population' | 'catalog' | 'embeddings';  // type de sync en cours
   totalItems?: number;  // nb total de cartes (envoyé sur le 1er événement)
 }
 

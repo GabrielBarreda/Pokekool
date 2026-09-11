@@ -1,0 +1,3 @@
+{
+  "_comment": "Fichier retiré (2026-09-08) : la traduction FR des noms de cartes est désormais résolue côté backend (table card_translations + header de langue, champ DisplayName sur les DTOs) plutôt que via ce dictionnaire statique. Voir ADR-004 dans la mémoire Obsidian du projet."
+}

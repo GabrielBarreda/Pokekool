@@ -600,7 +600,7 @@ export class ClientBoutiqueComponent implements OnInit {
     return (v ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   imageOf(p: ShopProductDto): string | null { return p.photoUrl || p.cardImage || null; }
-  titleOf(p: ShopProductDto): string { return p.productName || p.cardName || 'Article'; }
+  titleOf(p: ShopProductDto): string { return p.productName || p.displayName || p.cardName || 'Article'; }
   typeLabel(t: string): string {
     return ({ CardRaw: 'Carte brute', CardGraded: 'Carte gradée', SealedSet: 'Scellé', SealedUpc: 'Scellé UPC' } as Record<string, string>)[t] ?? t;
   }

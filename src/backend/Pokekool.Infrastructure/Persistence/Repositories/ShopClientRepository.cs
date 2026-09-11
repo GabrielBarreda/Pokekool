@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Pokekool.Application.Abstractions;
+using Pokekool.Application.Pokemon.Services;
 using Pokekool.Domain.Entities.Pokemon;
 using Pokekool.Domain.Entities.Shop;
 using Pokekool.Domain.Repositories;
@@ -24,8 +26,18 @@ internal sealed class ShopClientRepository : IShopClientRepository
     private const int DefaultDurationMinutes = 60;
 
     private readonly PokekoolDbContext _db;
+    private readonly ICardDisplayNameResolver _displayNameResolver;
+    private readonly ICurrentDisplayLanguageService _displayLanguage;
 
-    public ShopClientRepository(PokekoolDbContext db) => _db = db;
+    public ShopClientRepository(
+        PokekoolDbContext db,
+        ICardDisplayNameResolver displayNameResolver,
+        ICurrentDisplayLanguageService displayLanguage)
+    {
+        _db = db;
+        _displayNameResolver = displayNameResolver;
+        _displayLanguage = displayLanguage;
+    }
 
     // ── Catalogue ──────────────────────────────────────────────
     public async Task<(IReadOnlyList<ShopProductDto> Items, long TotalCount)> GetAvailableProductsPagedAsync(
@@ -63,22 +75,32 @@ internal sealed class ShopClientRepository : IShopClientRepository
         // Enrichissement nom/image carte pour les produits liés à une carte du référentiel.
         var cardIds = products.Where(p => p.CardId.HasValue).Select(p => p.CardId!.Value).Distinct().ToList();
         var cards = cardIds.Count == 0
-            ? new Dictionary<Guid, (string Name, string? Image)>()
+            ? new Dictionary<Guid, (string TcgId, string Name, string? Image)>()
             : await _db.PokemonCards
                 .Where(c => cardIds.Contains(c.Id))
-                .Select(c => new { c.Id, c.Name, c.ImageSmall })
-                .ToDictionaryAsync(c => c.Id, c => (Name: c.Name, Image: c.ImageSmall), ct);
+                .Select(c => new { c.Id, c.TcgId, c.Name, c.ImageSmall })
+                .ToDictionaryAsync(c => c.Id, c => (TcgId: c.TcgId, Name: c.Name, Image: c.ImageSmall), ct);
+
+        // DisplayName : résolu en un seul lot (ResolveManyAsync) via le même service que le
+        // reste du back — ShopClientRepository est dans Infrastructure, qui référence déjà
+        // Application, donc ICardDisplayNameResolver/ICurrentDisplayLanguageService sont
+        // injectables ici directement (pas besoin de passer par ICardTranslationRepository).
+        var englishNamesByCardId = cards.ToDictionary(kv => kv.Key, kv => kv.Value.Name);
+        var displayNames = await _displayNameResolver.ResolveManyAsync(
+            englishNamesByCardId, _displayLanguage.Language, ct);
 
         var items = products.Select(p =>
         {
-            string? cardName = null, cardImage = null;
+            string? cardTcgId = null, cardName = null, cardImage = null, displayName = null;
             if (p.CardId.HasValue && cards.TryGetValue(p.CardId.Value, out var c))
             {
+                cardTcgId = c.TcgId;
                 cardName = c.Name;
                 cardImage = c.Image;
+                displayName = displayNames.TryGetValue(p.CardId.Value, out var dn) ? dn : c.Name;
             }
             return new ShopProductDto(
-                p.Id, p.ShopId, p.Type.ToString(), p.CardId, cardName, cardImage,
+                p.Id, p.ShopId, p.Type.ToString(), p.CardId, cardTcgId, cardName, displayName, cardImage,
                 p.ProductName, p.Language, p.Condition, p.GradingCompany, p.GradeValue,
                 p.Price, p.Currency, p.Quantity, p.IsAvailable, p.Description, p.PhotoUrl,
                 p.CreatedAt, p.UpdatedAt);

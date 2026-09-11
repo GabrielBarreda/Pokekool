@@ -5,6 +5,7 @@ public sealed record MarketCardDto(
     string TcgId,
     string Number,
     string Name,
+    string DisplayName,
     string? Supertype,
     string? Rarity,
     string[]? Types,

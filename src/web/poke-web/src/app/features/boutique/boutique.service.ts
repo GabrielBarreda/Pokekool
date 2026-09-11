@@ -100,10 +100,10 @@ export class BoutiqueService {
   searchCards(search: string): Observable<CardSummary[]> {
     const params = new HttpParams().set('search', search).set('page', 1).set('pageSize', 10);
     return this.http
-      .get<PagedResult<{ id: string; name: string; imageSmall: string | null; setName: string }>>(
+      .get<PagedResult<{ id: string; tcgId: string; name: string; displayName: string | null; imageSmall: string | null; setName: string }>>(
         `${environment.apiBaseUrl}/v1/pokemon/cards`, { params })
       .pipe(map(r => r.items.map(c => ({
-        id: c.id, name: c.name, imageSmall: c.imageSmall, setName: c.setName,
+        id: c.id, tcgId: c.tcgId, name: c.name, displayName: c.displayName, imageSmall: c.imageSmall, setName: c.setName,
       }))));
   }
 }

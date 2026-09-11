@@ -88,7 +88,7 @@ const EMPTY_FORM = (): ShopProductRequest => ({
                   @for (c of cardResults(); track c.id) {
                     <li (click)="pickCard(c)">
                       @if (c.imageSmall) { <img [src]="c.imageSmall" alt="" /> }
-                      {{ c.name }} <span class="muted">· {{ c.setName }}</span>
+                      {{ c.displayName || c.name }} <span class="muted">· {{ c.setName }}</span>
                     </li>
                   }
                 </ul>
@@ -156,7 +156,7 @@ const EMPTY_FORM = (): ShopProductRequest => ({
 
     @if (deleteTarget()) {
       <app-confirm-dialog title="Supprimer l'article"
-        [message]="'Supprimer « ' + (deleteTarget()!.cardName || deleteTarget()!.productName) + ' » ?'"
+        [message]="'Supprimer « ' + (deleteTarget()!.displayName || deleteTarget()!.cardName || deleteTarget()!.productName) + ' » ?'"
         confirmLabel="Supprimer" variant="danger"
         (confirmed)="doDelete()" (cancelled)="deleteTarget.set(null)" />
     }
@@ -499,7 +499,7 @@ export class PresentoirComponent implements OnInit {
       currency: p.currency, quantity: p.quantity, isAvailable: p.isAvailable,
       description: p.description, photoUrl: p.photoUrl,
     };
-    this.pickedCardName.set(p.cardName ?? '');
+    this.pickedCardName.set(p.displayName || p.cardName || '');
     this.cardResults.set([]);
     this.modalOpen.set(true);
   }
@@ -508,7 +508,7 @@ export class PresentoirComponent implements OnInit {
   onCardSearch(q: string): void { this.cardQuery.set(q); if (q.trim().length >= 2) this.cardSearch$.next(q.trim()); }
   pickCard(c: CardSummary): void {
     this.draft.cardId = c.id; this.draft.productName = null;
-    this.pickedCardName.set(c.name); this.cardResults.set([]); this.cardQuery.set('');
+    this.pickedCardName.set(c.displayName || c.name); this.cardResults.set([]); this.cardQuery.set('');
   }
   clearCard(): void { this.draft.cardId = null; this.pickedCardName.set(''); }
 

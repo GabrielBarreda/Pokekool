@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { ThemeService, ThemeMode, FontFamily } from '@core/services/theme.service';
 import { ThemeStore, ThemeUiMode } from '@core/theme/theme.store';
 import { CardComponent } from '@shared/ui/card/card.component';
+import { CardDisplayLanguageService } from '@core/services/card-display-language.service';
 
 interface ThemeOption {
   value: ThemeMode;
@@ -37,6 +38,17 @@ interface UiThemeOption {
 const UI_THEME_OPTIONS: UiThemeOption[] = [
   { value: 'default', label: 'Défaut',  icon: '🗂️', description: 'Interface standard de l\'application.' },
   { value: 'pokemon', label: 'Pokémon', icon: '🃏', description: 'Classeur à pochettes, transitions dédiées (Bourse et Collection).' },
+];
+
+interface CardLanguageOption {
+  value: string;
+  label: string;
+  icon: string;
+}
+
+const CARD_LANGUAGE_OPTIONS: CardLanguageOption[] = [
+  { value: 'en', label: 'Anglais',  icon: '🇬🇧' },
+  { value: 'fr', label: 'Français', icon: '🇫🇷' },
 ];
 
 @Component({
@@ -90,6 +102,26 @@ const UI_THEME_OPTIONS: UiThemeOption[] = [
             (click)="setUiTheme(opt.value)"
             type="button"
             [title]="opt.description"
+          >
+            <span class="theme-option__icon">{{ opt.icon }}</span>
+            <span class="theme-option__label">{{ opt.label }}</span>
+          </button>
+        }
+      </div>
+    </app-card>
+
+    <app-card title="Langue d'affichage des cartes" style="margin-top: var(--space-4)">
+      <p class="ui-theme-hint">
+        Nom affiché pour les cartes traduites (Bourse, Collection, Boutique). Les images des
+        cartes affichent toujours le nom imprimé dessus, quelle que soit cette préférence.
+      </p>
+      <div class="theme-grid">
+        @for (opt of cardLanguageOptions; track opt.value) {
+          <button
+            class="theme-option"
+            [class.theme-option--active]="cardDisplayLanguage.language() === opt.value"
+            (click)="setCardLanguage(opt.value)"
+            type="button"
           >
             <span class="theme-option__icon">{{ opt.icon }}</span>
             <span class="theme-option__label">{{ opt.label }}</span>
@@ -178,6 +210,7 @@ const UI_THEME_OPTIONS: UiThemeOption[] = [
       color: var(--color-text-muted);
       margin-bottom: var(--space-3);
     }
+
   `],
 })
 export class AppearanceSettingsComponent {
@@ -186,6 +219,8 @@ export class AppearanceSettingsComponent {
   readonly themeOptions = THEME_OPTIONS;
   readonly fontOptions  = FONT_OPTIONS;
   readonly uiThemeOptions = UI_THEME_OPTIONS;
+  readonly cardLanguageOptions = CARD_LANGUAGE_OPTIONS;
+  readonly cardDisplayLanguage = inject(CardDisplayLanguageService);
 
   setTheme(theme: ThemeMode): void {
     this.themeService.setTheme(theme);
@@ -197,5 +232,9 @@ export class AppearanceSettingsComponent {
 
   setUiTheme(mode: ThemeUiMode): void {
     this.themeStore.setMode(mode);
+  }
+
+  setCardLanguage(language: string): void {
+    this.cardDisplayLanguage.setLanguage(language);
   }
 }

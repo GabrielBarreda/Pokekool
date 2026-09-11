@@ -160,7 +160,7 @@ le code Angular ou MAUI — elles passent toutes par les tokens. Voir `ARCHITECT
   commentés dans `Tokens.xaml` et doivent être recodés manuellement avec `Easing.CubicInOut` /
   `<Shadow Offset="..." Radius="..."/>` selon le besoin.
 
-### 4. Web Angular (à venir)
+### 4. Web Angular 
 
 ```powershell
 cd src/web/pokekool-web
@@ -168,7 +168,7 @@ npm install
 npm start
 ```
 
-### 5. Mobile .NET MAUI (à venir)
+### 5. Mobile .NET MAUI (filaire)
 
 ```powershell
 cd src/mobile/Pokekool.Mobile
@@ -195,7 +195,5 @@ Détails complets : [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 Propriétaire. Voir [`LICENSE`](./LICENSE).
 
 
-## Plus tard 
-extend parametre 
- - boolean > client peut choisir sa table 
+
 

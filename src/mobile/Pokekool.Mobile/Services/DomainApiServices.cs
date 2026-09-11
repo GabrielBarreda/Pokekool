@@ -82,12 +82,20 @@ public sealed class CollectionApiService
         => _api.PostAsync<CollectionCardStatusDto>($"collection/cards/{cardId}/priority", new { isPriority }, ct);
 
     /// <summary>POST collection/scan — multipart/form-data, champ "image".</summary>
-    public async Task<ScanCollectionResult> ScanAsync(Stream imageStream, string fileName, CancellationToken ct = default)
+    public async Task<ScanCollectionResult> ScanAsync(
+        Stream imageStream, string fileName,
+        IReadOnlyList<string>? excluded = null, CancellationToken ct = default)
     {
         using var content = new MultipartFormDataContent();
         var streamContent = new StreamContent(imageStream);
         streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
         content.Add(streamContent, "image", fileName);
+
+        // Re-roll : libellés déjà rejetés, envoyés en champs répétés "excluded".
+        if (excluded is not null)
+            foreach (var label in excluded.Where(l => !string.IsNullOrWhiteSpace(l)))
+                content.Add(new StringContent(label), "excluded");
+
         return await _api.PostMultipartAsync<ScanCollectionResult>("collection/scan", content, ct);
     }
 

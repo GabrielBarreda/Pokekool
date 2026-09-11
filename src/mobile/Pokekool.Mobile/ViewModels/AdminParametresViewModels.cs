@@ -16,6 +16,7 @@ public partial class ProfileViewModel : BaseViewModel
 {
     private readonly AccountApiService _account;
     private readonly AuthService _auth;
+    private readonly CardDisplayLanguageService _cardDisplayLanguage;
 
     [ObservableProperty] private CurrentUserDto? _me;
     [ObservableProperty] private string _currentPassword = string.Empty;
@@ -23,10 +24,24 @@ public partial class ProfileViewModel : BaseViewModel
     [ObservableProperty] private string _newPasswordConfirm = string.Empty;
     [ObservableProperty] private string? _passwordMessage;
 
-    public ProfileViewModel(AccountApiService account, AuthService auth)
+    /// <summary>Langue d'affichage des noms de cartes — persistée localement, envoyée au
+    /// backend via un header sur chaque requête (voir ADR-004, mémoire Obsidian du projet).
+    /// Résolue par CardDisplayLanguageService, jamais côté client.</summary>
+    public bool CardLanguageIsFrench
+    {
+        get => _cardDisplayLanguage.Language == "fr";
+        set
+        {
+            _cardDisplayLanguage.Language = value ? "fr" : "en";
+            OnPropertyChanged();
+        }
+    }
+
+    public ProfileViewModel(AccountApiService account, AuthService auth, CardDisplayLanguageService cardDisplayLanguage)
     {
         _account = account;
         _auth = auth;
+        _cardDisplayLanguage = cardDisplayLanguage;
     }
 
     [RelayCommand]

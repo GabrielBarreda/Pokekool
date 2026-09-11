@@ -1,5 +1,5 @@
 import {
-  Component, OnInit, OnDestroy, inject, signal, computed, ChangeDetectionStrategy,
+  Component, OnInit, OnDestroy, inject, signal, computed, ChangeDetectionStrategy, Injector,
 } from '@angular/core';
 import { NgIf } from '@angular/common';
 import { toObservable } from '@angular/core/rxjs-interop';
@@ -41,6 +41,32 @@ import { SyncProgressEvent } from '@features/bourse/market.models';
         {{ tickerText() }}
       </span>
 
+    </div>
+
+    <!-- Réindexation embeddings DINOv2 (démarrage auto, indépendante du sync prix/pop) -->
+    <div *ngIf="embeddingRunning()" class="sync-overlay" role="status" aria-live="polite">
+
+      <span class="sync-overlay__badge">🧠 EMBEDDINGS</span>
+
+      <span class="sync-overlay__counter">
+        {{ embeddingProcessed() }} / {{ embeddingTotal() }}
+      </span>
+
+      <div class="sync-overlay__bar" aria-hidden="true">
+        <div class="sync-overlay__bar-fill" [style.width.%]="embeddingProgress()"></div>
+      </div>
+
+      <span class="sync-overlay__percent">{{ embeddingProgress() }}%</span>
+
+      <span class="sync-overlay__ticker">
+        {{ embeddingRemaining() }} carte(s) restante(s)
+      </span>
+
+    </div>
+
+    <!-- Flash terminé embeddings -->
+    <div *ngIf="embeddingShowCompleted()" class="sync-overlay sync-overlay--done" role="status" aria-live="polite">
+      🧠 Embeddings à jour — {{ embeddingProcessed() }} carte(s) indexée(s)
     </div>
 
     <!-- Flash terminé -->
@@ -141,9 +167,26 @@ export class SyncProgressOverlayComponent implements OnInit, OnDestroy {
   readonly itemsProcessed = signal(0);
   readonly totalItems     = signal(0);
   readonly showCompleted  = signal(false);
-  readonly syncType       = signal<'prices' | 'population' | 'catalog'>('prices');
+  readonly syncType       = signal<'prices' | 'population' | 'catalog' | 'embeddings'>('prices');
 
   readonly isRunning = computed(() => this.dashStore.syncStatus()?.status === 'running');
+
+  // ── Réindexation embeddings DINOv2 (indépendante du sync prix/pop) ───────────
+  // Se déclenche automatiquement au démarrage de l'API (EmbeddingReindexHostedService),
+  // sans action utilisateur — découverte par polling du statut, pas par un déclenchement UI.
+  readonly embeddingRunning = computed(() => this.dashStore.embeddingStatus()?.status === 'running');
+  readonly embeddingTotal   = computed(() => this.dashStore.embeddingStatus()?.totalItems ?? 0);
+  readonly embeddingRemaining = computed(() => this.dashStore.embeddingStatus()?.remaining ?? 0);
+  readonly embeddingProcessed = computed(() => {
+    const s = this.dashStore.embeddingStatus();
+    return s ? s.itemsProcessed + s.itemsFailed : 0;
+  });
+  readonly embeddingProgress = computed(() =>
+    this.embeddingTotal() > 0
+      ? Math.min(100, Math.round(this.embeddingProcessed() / this.embeddingTotal() * 100))
+      : 0
+  );
+  readonly embeddingShowCompleted = signal(false);
 
   readonly progress = computed(() =>
     this.totalItems() > 0
@@ -181,7 +224,9 @@ export class SyncProgressOverlayComponent implements OnInit, OnDestroy {
     const e = this.lastEvent();
     if (!e) return 'Connexion au flux...';
     const icon = e.success ? '✅' : '❌';
-    return `${e.setName} — ${e.cardName} #${e.cardNumber} ${icon}`;
+    // Sync catalogue (par set) : pas de numéro de carte — évite d'afficher un "#" vide.
+    const numberPart = e.cardNumber ? ` #${e.cardNumber}` : '';
+    return `${e.setName} — ${e.cardName}${numberPart} ${icon}`;
   });
 
   // ── Subscriptions ──────────────────────────────────────────────────────────
@@ -193,6 +238,13 @@ export class SyncProgressOverlayComponent implements OnInit, OnDestroy {
   private wasRunning    = false;
   private syncStartTime = 0;
 
+  private embeddingPollSub?:      Subscription;
+  private embeddingStatusSub?:    Subscription;
+  private embeddingCompletedTimer?: ReturnType<typeof setTimeout>;
+  private embeddingWasRunning     = false;
+
+  private readonly injector = inject(Injector);
+
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
   ngOnInit(): void {
@@ -201,7 +253,7 @@ export class SyncProgressOverlayComponent implements OnInit, OnDestroy {
     this.pollSub = interval(30_000).subscribe(() => this.dashStore.loadSyncStatus());
 
     // Réagit aux changements de statut
-    this.statusSub = toObservable(this.dashStore.syncStatus).pipe(
+    this.statusSub = toObservable(this.dashStore.syncStatus, { injector: this.injector }).pipe(
       map(dto => dto?.status ?? 'none'),
       distinctUntilChanged(),
     ).subscribe(status => {
@@ -216,6 +268,26 @@ export class SyncProgressOverlayComponent implements OnInit, OnDestroy {
         this.completedTimer = setTimeout(() => this.showCompleted.set(false), 3_000);
       }
     });
+
+    // Réindexation embeddings : pas de déclenchement UI (démarrage auto côté API), donc on
+    // découvre l'état par polling rapide tant qu'aucune donnée n'est encore chargée/en cours,
+    // pour afficher la barre dès le premier chargement de page après un redémarrage backend.
+    this.dashStore.loadEmbeddingStatus();
+    this.embeddingPollSub = interval(5_000).subscribe(() => this.dashStore.loadEmbeddingStatus());
+
+    this.embeddingStatusSub = toObservable(this.dashStore.embeddingStatus, { injector: this.injector }).pipe(
+      map(dto => dto?.status ?? 'idle'),
+      distinctUntilChanged(),
+    ).subscribe(status => {
+      if (status === 'running' && !this.embeddingWasRunning) {
+        this.embeddingWasRunning = true;
+        this.embeddingShowCompleted.set(false);
+      } else if (status === 'completed' && this.embeddingWasRunning) {
+        this.embeddingWasRunning = false;
+        this.embeddingShowCompleted.set(true);
+        this.embeddingCompletedTimer = setTimeout(() => this.embeddingShowCompleted.set(false), 4_000);
+      }
+    });
   }
 
   ngOnDestroy(): void {
@@ -223,6 +295,10 @@ export class SyncProgressOverlayComponent implements OnInit, OnDestroy {
     this.pollSub?.unsubscribe();
     this.statusSub?.unsubscribe();
     if (this.completedTimer) clearTimeout(this.completedTimer);
+
+    this.embeddingPollSub?.unsubscribe();
+    this.embeddingStatusSub?.unsubscribe();
+    if (this.embeddingCompletedTimer) clearTimeout(this.embeddingCompletedTimer);
   }
 
   // ── Private ────────────────────────────────────────────────────────────────

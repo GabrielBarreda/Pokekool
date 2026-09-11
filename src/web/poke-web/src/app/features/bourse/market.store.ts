@@ -207,7 +207,8 @@ export const MarketStore = signalStore(
     return {
     loadSets: _loadSets,
 
-    selectSet(setId: string): void {
+    /** setId null = mode "Tous les sets" : catalogue entier, paginé. */
+    selectSet(setId: string | null): void {
       patchState(store, {
         selectedSetId: setId,
         filters: { ...initialFilters },
@@ -217,10 +218,15 @@ export const MarketStore = signalStore(
         availableRarities: [],
         availableSupertypes: [],
       });
-      _loadSetFilters(setId);
+      if (setId) {
+        _loadSetFilters(setId);
+      } else {
+        // Pas de filtres rarité/supertype pré-calculés en mode "Tous" — tous activés.
+        patchState(store, { availableRarities: [], availableSupertypes: [] });
+      }
     },
 
-    loadCards: rxMethod<{ setId: string; filters: MarketFilters }>(
+    loadCards: rxMethod<{ setId: string | null; filters: MarketFilters }>(
       pipe(
         debounceTime(300),
         distinctUntilChanged((a, b) =>

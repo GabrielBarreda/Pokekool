@@ -46,7 +46,8 @@ import { ToastService } from '@shared/services/toast.service';
               <rect x="3" y="3" width="18" height="18" rx="2"/>
               <path d="M3 9h18M9 21V9"/>
             </svg>
-            <select class="set-select" [ngModel]="store.selectedSetId()" (ngModelChange)="onSetChange($event)">
+            <select class="set-select" [ngModel]="store.selectedSetId() ?? ''" (ngModelChange)="onSetChange($event)">
+              <option value="">📚 Tous les sets</option>
               @for (group of store.seriesGroups(); track group.series) {
                 <optgroup [label]="group.series">
                   @for (s of group.sets; track s.id) {
@@ -97,6 +98,8 @@ import { ToastService } from '@shared/services/toast.service';
                 {{ set.cardCount }} / {{ set.totalCards }} importées
                 @if (completionPercent() !== null) { · {{ completionPercent() }}% }
                 · {{ set.name }}
+              } @else {
+                📚 Tout le catalogue — {{ store.totalItems() | number }} carte(s)
               }
             </span>
           </div>
@@ -274,12 +277,13 @@ import { ToastService } from '@shared/services/toast.service';
 
       <!-- Grille -->
       <div class="content-area">
-        @if (store.loadingCards() && store.cards().length === 0) {
+        @if (store.loadingSets() || (store.loadingCards() && store.cards().length === 0)) {
           <div class="center"><app-spinner size="lg" /></div>
-        } @else if (!store.selectedSetId()) {
-          <app-empty-state icon="📦" title="Sélectionnez un set"
-            description="Choisissez un set dans le menu déroulant pour consulter les cours." />
         } @else if (!store.hasCards() && !store.loadingCards()) {
+          <!-- Couvre aussi bien un set vide/filtré sans résultat que le mode "Tous les sets"
+               (selectedSetId null) sans correspondance — plus de message "Sélectionnez un set"
+               distinct : null est un mode d'affichage valide (catalogue entier), pas un état
+               transitoire "rien choisi" (2026-09-08, cf. sélecteur "Tous les sets"). -->
           <app-empty-state icon="🔍" title="Aucune carte"
             description="Modifiez vos filtres ou choisissez un autre set." />
         } @else {
@@ -307,7 +311,7 @@ import { ToastService } from '@shared/services/toast.service';
                   <div class="binder-pocket__sheen" aria-hidden="true"></div>
                   <div class="binder-pocket__img-wrap">
                     @if (card.imageSmall) {
-                      <img [src]="card.imageSmall" [alt]="card.name" class="binder-pocket__img" loading="lazy" />
+                      <img [src]="card.imageSmall" [alt]="card.displayName || card.name" class="binder-pocket__img" loading="lazy" />
                     } @else {
                       <div class="binder-pocket__placeholder">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.35">
@@ -378,7 +382,7 @@ import { ToastService } from '@shared/services/toast.service';
                     <div class="pokemon-hero" #heroCard
                          (mousemove)="onHeroTilt($event)"
                          (mouseleave)="onHeroTiltLeave($event)">
-                      <img [src]="card.imageLarge ?? card.imageSmall" [alt]="card.name" class="pokemon-hero__img" />
+                      <img [src]="card.imageLarge ?? card.imageSmall" [alt]="card.displayName || card.name" class="pokemon-hero__img" />
                     </div>
                   </div>
                 }
@@ -401,7 +405,7 @@ import { ToastService } from '@shared/services/toast.service';
                   <!-- Image -->
                   <div class="card-img-wrap">
                     @if (card.imageSmall) {
-                      <img [src]="card.imageSmall" [alt]="card.name" class="card-img" loading="lazy" />
+                      <img [src]="card.imageSmall" [alt]="card.displayName || card.name" class="card-img" loading="lazy" />
                     } @else {
                       <div class="card-img card-img--placeholder">
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3">
@@ -417,7 +421,7 @@ import { ToastService } from '@shared/services/toast.service';
 
                   <!-- Info -->
                   <div class="card-info">
-                    <div class="card-name">{{ card.name }}</div>
+                    <div class="card-name">{{ card.displayName || card.name }}</div>
                     <div class="card-meta">
                       <span class="card-number">#{{ card.number }}</span>
                       @if (card.rarity) {
@@ -1068,13 +1072,12 @@ export class MarketListComponent implements OnInit {
   });
 
   constructor() {
-    // Recharger les cartes dès que setId ou filtres changent
+    // Recharger les cartes dès que setId ou filtres changent — setId null = mode
+    // "Tous les sets" (catalogue entier, paginé), déclenche aussi le chargement.
     effect(() => {
       const setId = this.store.selectedSetId();
       const filters = this.store.filters();
-      if (setId) {
-        this.store.loadCards({ setId, filters });
-      }
+      this.store.loadCards({ setId, filters });
     });
 
     // Revenir à la première page du classeur quand le set ou les filtres
@@ -1091,7 +1094,9 @@ export class MarketListComponent implements OnInit {
   }
 
   onSetChange(setId: string): void {
-    this.store.selectSet(setId);
+    // Le <select> natif renvoie '' pour l'option "Tous les sets" — on la convertit en null,
+    // la valeur que le store/l'API traitent comme "catalogue entier, tous sets confondus".
+    this.store.selectSet(setId || null);
   }
 
   onSearch(val: string): void {
@@ -1312,7 +1317,10 @@ export class MarketListComponent implements OnInit {
   }
 
   onSyncPopulation(): void {
-    const cardIds = this.store.cards().map(c => c.id);
+    // Mode "Tous les sets" (aucun set sélectionné) : tableau vide = tout le catalogue côté
+    // backend (SyncCardPopulationCommand), plutôt que les seules cartes de la page affichée.
+    const set = this.store.selectedSet();
+    const cardIds = set ? this.store.cards().map(c => c.id) : [];
     this.store.syncPopulation(cardIds);
   }
 

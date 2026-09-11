@@ -120,6 +120,14 @@ export const routes: Routes = [
         title: 'Paramètres — Pokekool',
       },
 
+      // Scan & Historique (admin) — banc de test volume DINOv2
+      {
+        path: 'scan-historique',
+        loadComponent: () =>
+          import('./features/scan-history/scan-history.component').then(m => m.ScanHistoryComponent),
+        title: 'Scan & Historique — Pokekool',
+      },
+
       // Default redirect
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
     ],

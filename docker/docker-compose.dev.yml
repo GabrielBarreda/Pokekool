@@ -64,6 +64,15 @@ services:
       - "11434:11434"
     volumes:
       - ollama-data:/root/.ollama
+    # Accès au GPU NVIDIA (nécessite NVIDIA Container Toolkit / Docker Desktop WSL2 + driver récent).
+    # Fait passer l'inférence vision de ~100 s (CPU) à quelques secondes.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
   adminer:
     image: adminer:4
@@ -95,6 +104,10 @@ services:
       Ollama__BaseUrl: "http://ollama:11434"
       OllamaVision__BaseUrl: "http://ollama:11434"
       OllamaChat__BaseUrl: "http://ollama:11434"
+      # Chemin absolu du cerveau RAG (monté ci-dessous). Absolu → indépendant du ContentRootPath.
+      AiBrainPath: "/src/Pokekool.API/ai-brain"
+      # Blender headless installé dans Dockerfile.dev (voir ARG BLENDER_VERSION).
+      Blender__ExecutablePath: "blender"
       # CORS : Angular dev server tourne sur l'hôte, pas dans Docker
       Cors__AllowedOrigins__0: "http://localhost:4200"
       Cors__AllowedOrigins__1: "https://localhost:4200"
@@ -109,6 +122,9 @@ services:
       - playwright-cache:/root/.cache/ms-playwright
       # Vault RAG persistant
       - ../src/backend/Pokekool.API/ai-brain:/src/Pokekool.API/ai-brain
+      # Script Blender companion — même contenu que celui copié en prod (Dockerfile),
+      # monté ici pour que ContentRootPath + Blender.ScriptPath le résolvent en dev aussi.
+      - ../scripts/blender:/src/Pokekool.API/scripts/blender:ro
     depends_on:
       postgres:
         condition: service_healthy

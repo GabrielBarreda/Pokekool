@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Pokekool.Shared.Dtos.Auth;
 
 namespace Pokekool.Mobile.Services;
@@ -13,7 +14,13 @@ public sealed class AuthService
 {
     private const string RefreshTokenKey = "pokekool_refresh_token";
 
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
+    {
+        // Le backend sérialise les enums en texte (JsonStringEnumConverter dans Program.cs) —
+        // sans ce convertisseur ici, la désérialisation d'un champ enum (ex. ScanStatus) plante
+        // avec "The JSON value could not be converted...".
+        Converters = { new JsonStringEnumConverter() },
+    };
 
     private readonly SessionService _session;
     private readonly HttpClient _http;

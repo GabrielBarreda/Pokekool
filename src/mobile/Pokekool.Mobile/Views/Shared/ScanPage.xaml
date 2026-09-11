@@ -29,7 +29,7 @@
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="vm:ScanMatchItem">
                     <Border Style="{StaticResource Card}" Margin="0,4">
-                        <Grid ColumnDefinitions="Auto,56,*" ColumnSpacing="10">
+                        <Grid ColumnDefinitions="Auto,56,*,Auto" ColumnSpacing="10">
                             <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}"
                                       IsEnabled="{Binding CanSelect}" VerticalOptions="Center" />
                             <Image Grid.Column="1" Source="{Binding Image}" HeightRequest="72" Aspect="AspectFit" />
@@ -37,6 +37,11 @@
                                 <Label Text="{Binding DisplayName}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
                                 <Label Text="{Binding ConfidenceLabel}" Style="{StaticResource SubtleLabel}" />
                             </VerticalStackLayout>
+                            <Button Grid.Column="3" Text="✗ Pas ça" Style="{StaticResource SecondaryButton}"
+                                    VerticalOptions="Center" Padding="10,4" FontSize="12"
+                                    IsVisible="{Binding Match.Matched}"
+                                    Command="{Binding RejectCommand, Source={RelativeSource AncestorType={x:Type vm:ScanViewModel}}}"
+                                    CommandParameter="{Binding .}" />
                         </Grid>
                     </Border>
                 </DataTemplate>

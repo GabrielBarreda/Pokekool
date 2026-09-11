@@ -8,8 +8,9 @@ import { AppearanceSettingsComponent } from './appearance/appearance-settings.co
 import { ProviderSettingsComponent } from './providers/provider-settings.component';
 import { ProviderFreeSettingsComponent } from './providers/provider-free-settings.component';
 import { StorageSettingsComponent } from './storage/storage-settings.component';
+import { ScanVisionSettingsComponent } from './scan-vision/scan-vision-settings.component';
 
-type Section = 'appearance' | 'providers-free' | 'providers' | 'storage';
+type Section = 'appearance' | 'providers-free' | 'providers' | 'storage' | 'scan-vision';
 
 interface NavItem {
   id: Section;
@@ -22,6 +23,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'providers-free', label: 'Providers Free',  icon: '🆓' },
   { id: 'providers',      label: 'Providers',        icon: '🔌' },
   { id: 'storage',        label: 'Stockage',         icon: '🗃️' },
+  { id: 'scan-vision',    label: 'Scan (IA Vision)', icon: '🔍' },
 ];
 
 @Component({
@@ -34,6 +36,7 @@ const NAV_ITEMS: NavItem[] = [
     ProviderSettingsComponent,
     ProviderFreeSettingsComponent,
     StorageSettingsComponent,
+    ScanVisionSettingsComponent,
   ],
   template: `
     <div class="settings-page" [class.settings-page--wide]="activeSection() === 'providers-free'">
@@ -71,6 +74,9 @@ const NAV_ITEMS: NavItem[] = [
           }
           @if (activeSection() === 'storage') {
             <app-storage-settings />
+          }
+          @if (activeSection() === 'scan-vision') {
+            <app-scan-vision-settings />
           }
         </div>
       </div>

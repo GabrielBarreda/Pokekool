@@ -1,4 +1,6 @@
 using MediatR;
+using Pokekool.Application.Abstractions;
+using Pokekool.Application.Pokemon.Services;
 using Pokekool.Domain.Entities.Shop;
 using Pokekool.Domain.Repositories;
 using Pokekool.Shared.Dtos.Shop;
@@ -11,15 +13,22 @@ internal sealed class CreateShopProductCommandHandler
     private readonly IShopRepository _shopRepo;
     private readonly IShopProductRepository _repo;
     private readonly IPokemonCardRepository _cardRepo;
+    private readonly ICardDisplayNameResolver _displayNameResolver;
+    private readonly ICurrentDisplayLanguageService _displayLanguage;
     private readonly IUnitOfWork _uow;
 
     public CreateShopProductCommandHandler(
         IShopRepository shopRepo, IShopProductRepository repo,
-        IPokemonCardRepository cardRepo, IUnitOfWork uow)
+        IPokemonCardRepository cardRepo,
+        ICardDisplayNameResolver displayNameResolver,
+        ICurrentDisplayLanguageService displayLanguage,
+        IUnitOfWork uow)
     {
         _shopRepo = shopRepo;
         _repo = repo;
         _cardRepo = cardRepo;
+        _displayNameResolver = displayNameResolver;
+        _displayLanguage = displayLanguage;
         _uow = uow;
     }
 
@@ -40,6 +49,9 @@ internal sealed class CreateShopProductCommandHandler
         await _uow.SaveChangesAsync(ct);
 
         var card = product.CardId.HasValue ? await _cardRepo.GetByIdAsync(product.CardId.Value, ct) : null;
-        return ShopMapper.ToDto(product, card);
+        var displayName = card is not null
+            ? await _displayNameResolver.ResolveAsync(card.Id, card.Name, _displayLanguage.Language, ct)
+            : null;
+        return ShopMapper.ToDto(product, card, displayName);
     }
 }

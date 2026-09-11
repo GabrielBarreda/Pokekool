@@ -1,4 +1,6 @@
 using MediatR;
+using Pokekool.Application.Abstractions;
+using Pokekool.Application.Pokemon.Services;
 using Pokekool.Domain.Entities.Pokemon;
 using Pokekool.Domain.Repositories;
 using Pokekool.Shared.Dtos.Common;
@@ -10,13 +12,19 @@ public sealed class GetMarketCardsQueryHandler : IRequestHandler<GetMarketCardsQ
 {
     private readonly IPokemonCardRepository _cardRepo;
     private readonly ICardMarketPriceRepository _priceRepo;
+    private readonly ICardDisplayNameResolver _displayNameResolver;
+    private readonly ICurrentDisplayLanguageService _displayLanguage;
 
     public GetMarketCardsQueryHandler(
         IPokemonCardRepository cardRepo,
-        ICardMarketPriceRepository priceRepo)
+        ICardMarketPriceRepository priceRepo,
+        ICardDisplayNameResolver displayNameResolver,
+        ICurrentDisplayLanguageService displayLanguage)
     {
         _cardRepo = cardRepo;
         _priceRepo = priceRepo;
+        _displayNameResolver = displayNameResolver;
+        _displayLanguage = displayLanguage;
     }
 
     public async Task<PagedResult<MarketCardDto>> Handle(GetMarketCardsQuery request, CancellationToken cancellationToken)
@@ -33,6 +41,10 @@ public sealed class GetMarketCardsQueryHandler : IRequestHandler<GetMarketCardsQ
         var cardIds = cards.Select(c => c.Id);
         var pricesByCard = await _priceRepo.GetByCardIdsAsync(cardIds, cancellationToken);
 
+        var englishNamesByCardId = cards.ToDictionary(c => c.Id, c => c.Name);
+        var displayNames = await _displayNameResolver.ResolveManyAsync(
+            englishNamesByCardId, _displayLanguage.Language, cancellationToken);
+
         var dtos = cards.Select(card =>
         {
             pricesByCard.TryGetValue(card.Id, out var prices);
@@ -43,6 +55,7 @@ public sealed class GetMarketCardsQueryHandler : IRequestHandler<GetMarketCardsQ
                 card.TcgId,
                 card.Number,
                 card.Name,
+                displayNames.TryGetValue(card.Id, out var displayName) ? displayName : card.Name,
                 card.Supertype,
                 card.Rarity,
                 card.Types,

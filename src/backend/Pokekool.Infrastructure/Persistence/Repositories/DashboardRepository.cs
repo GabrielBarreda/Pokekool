@@ -41,6 +41,7 @@ public sealed class DashboardRepository : IDashboardRepository
             .Take(20)
             .Select(x => new RecentlyScrapedCardProjection(
                 x.Card.Id.ToString(),
+                x.Card.TcgId,
                 x.Card.Name,
                 x.Card.ImageSmall,
                 x.Set.Name,

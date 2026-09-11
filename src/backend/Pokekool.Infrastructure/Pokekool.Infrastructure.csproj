@@ -20,6 +20,10 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <!-- Matching visuel de cartes (comparatif DINOv2, 2026-09-04) : stockage/recherche par
+         similarité des embeddings dans la colonne pgvector "embedding" de pokemon_cards. -->
+    <PackageReference Include="Pgvector" Version="0.3.2" />
+    <PackageReference Include="Pgvector.EntityFrameworkCore" Version="0.2.2" />
     <PackageReference Include="StackExchange.Redis" Version="$(StackExchangeRedisVersion)" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="$(MicrosoftExtensionsOptionsConfigVersion)" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.1.2" />

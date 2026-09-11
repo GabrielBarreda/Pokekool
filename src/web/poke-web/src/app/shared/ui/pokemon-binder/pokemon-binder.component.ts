@@ -15,6 +15,9 @@ export interface BinderItem {
   id: string;
   imageUrl: string | null;
   name: string;
+  /** Nom traduit selon la langue d'affichage préférée du client (résolu
+   *  serveur) — à privilégier sur `name` quand disponible. */
+  displayName?: string | null;
   /** Image haute résolution pour la visualisation en grand — retombe sur
    *  `imageUrl` si absente (évite de charger du HD pour toutes les pochettes). */
   imageLargeUrl?: string | null;
@@ -52,11 +55,11 @@ export interface BinderItem {
                 (pointercancel)="onPocketPointerCancel()"
                 (click)="onPocketClick(item)"
                 (contextmenu)="onPocketContextMenu($event, item)"
-                [title]="item.name">
+                [title]="item.displayName || item.name">
           <div class="binder-pocket__sheen" aria-hidden="true"></div>
           <div class="binder-pocket__img-wrap">
             @if (item.imageUrl) {
-              <img [src]="item.imageUrl" [alt]="item.name" class="binder-pocket__img" loading="lazy" />
+              <img [src]="item.imageUrl" [alt]="item.displayName || item.name" class="binder-pocket__img" loading="lazy" />
             } @else {
               <div class="binder-pocket__placeholder">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.35">
@@ -122,9 +125,9 @@ export interface BinderItem {
                (mousemove)="onHeroTilt($event)"
                (mouseleave)="onHeroTiltLeave($event)">
             @if (item.imageLargeUrl ?? item.imageUrl; as heroImg) {
-              <img [src]="heroImg" [alt]="item.name" class="pokemon-hero__img" />
+              <img [src]="heroImg" [alt]="item.displayName || item.name" class="pokemon-hero__img" />
             } @else {
-              <div class="pokemon-hero__placeholder">{{ item.name }}</div>
+              <div class="pokemon-hero__placeholder">{{ item.displayName || item.name }}</div>
             }
             <button class="pokemon-hero__close" type="button"
                     (click)="closeView(); $event.stopPropagation()" aria-label="Fermer la visualisation">×</button>

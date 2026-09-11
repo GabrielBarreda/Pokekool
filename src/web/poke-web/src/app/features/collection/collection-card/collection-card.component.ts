@@ -134,7 +134,7 @@ import { CollectionCardDto } from '../collection.models';
       [class.is-toggling]="isToggling"
       (click)="onCardClick()"
       (contextmenu)="onContextMenu($event)"
-      [title]="card.name"
+      [title]="card.displayName || card.name"
     >
       @if (card.imageSmall) {
         <img
@@ -142,12 +142,12 @@ import { CollectionCardDto } from '../collection.models';
           [class.not-owned]="!card.isOwned"
           [class.owned]="card.isOwned"
           [src]="card.imageSmall"
-          [alt]="card.name"
+          [alt]="card.displayName || card.name"
           loading="lazy"
         />
       } @else {
         <div class="card-placeholder" [class.not-owned]="!card.isOwned">
-          {{ card.number }} · {{ card.name }}
+          {{ card.number }} · {{ card.displayName || card.name }}
         </div>
       }
 

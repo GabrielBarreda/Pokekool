@@ -44,6 +44,11 @@ public sealed class StorageBinder : Entity
         return binder;
     }
 
+    /// <summary>Crée un classeur « non rangé » (ni carton ni meuble) — utilisé par le scan de
+    /// dossier automatique (RunScanBatchCommandHandler), qui n'a pas d'emplacement physique
+    /// choisi à la création. L'utilisateur le range ensuite (chatbot, écran Stockage 3D).</summary>
+    public static StorageBinder CreateUnplaced(string label) => NewWithLabel(label);
+
     private static StorageBinder NewWithLabel(string label)
     {
         if (string.IsNullOrWhiteSpace(label))

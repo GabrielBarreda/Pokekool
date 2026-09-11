@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Pgvector;
 using Pokekool.Domain.Entities.Pokemon;
 
 namespace Pokekool.Infrastructure.Persistence.Configurations.Pokemon;
@@ -26,6 +27,15 @@ public sealed class PokemonCardConfiguration : IEntityTypeConfiguration<PokemonC
         builder.Property(c => c.IsLegal).HasColumnName("is_legal").IsRequired();
         builder.Property(c => c.CreatedAt).HasColumnName("created_at").IsRequired();
         builder.Property(c => c.UpdatedAt).HasColumnName("updated_at");
+
+        // Embedding visuel (DINOv2, 384 dim) — shadow property : le Domain ne connaît pas ce
+        // champ (aucune propriété correspondante sur PokemonCard), afin de ne pas lui faire
+        // porter de dépendance vers Pgvector.Vector (type spécifique PostgreSQL/EF). Accès via
+        // IPokemonCardRepository.SetEmbeddingAsync / GetWithoutEmbeddingAsync / SearchByEmbeddingAsync
+        // (voir PokemonCardRepository), qui exposent uniquement des float[] au reste de l'app.
+        builder.Property<Vector>(PokemonCardEmbeddingColumn.ShadowPropertyName)
+            .HasColumnName(PokemonCardEmbeddingColumn.ColumnName)
+            .HasColumnType($"vector({PokemonCardEmbeddingColumn.Dimensions})");
 
         builder.HasIndex(c => c.TcgId)
             .IsUnique()

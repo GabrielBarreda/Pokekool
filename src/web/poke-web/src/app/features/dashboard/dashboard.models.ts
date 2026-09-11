@@ -2,7 +2,10 @@
 
 export interface RecentlyScrapedCardDto {
   cardId:        string;
+  tcgId:         string | null;
   name:          string;
+  /** Nom traduit selon la langue d'affichage préférée du client (résolu serveur). */
+  displayName:   string | null;
   imageSmall:    string | null;
   setName:       string;
   rarity:        string | null;
@@ -14,7 +17,10 @@ export interface RecentlyScrapedCardDto {
 
 export interface ForSaleCardDto {
   cardId:          string;
+  tcgId:           string | null;
   name:            string;
+  /** Nom traduit selon la langue d'affichage préférée du client (résolu serveur). */
+  displayName:     string | null;
   imageSmall:      string | null;
   salePrice:       number;
   currency:        string;
@@ -47,6 +53,16 @@ export interface SyncScheduleDto {
   status:              'none' | 'pending' | 'running' | 'completed' | 'cancelled';
   lastCompletedAt:     string | null;
   lastPricesUpserted:  number | null;
+}
+
+export interface EmbeddingReindexStatusDto {
+  status:         'idle' | 'running' | 'completed';
+  totalItems:     number;
+  itemsProcessed: number;
+  itemsFailed:    number;
+  remaining:      number;
+  startedAt:      string | null;
+  completedAt:    string | null;
 }
 
 export interface DashboardSummaryDto {

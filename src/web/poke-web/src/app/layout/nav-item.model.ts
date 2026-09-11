@@ -32,9 +32,10 @@ export const BOUTIQUE_NAV_ITEMS: NavItem[] = [
 
 // Items visibles uniquement par les admins
 export const ADMIN_ONLY_NAV_ITEMS: NavItem[] = [
-  { label: 'Utilisateurs', route: '/utilisateurs', icon: '👥', adminOnly: true, permission: 'users:read' },
-  { label: 'Rôles & perms', route: '/roles',       icon: '🔑', adminOnly: true, permission: 'roles:read' },
-  { label: 'Paramètres',    route: '/settings',    icon: '⚙️', adminOnly: true },
+  { label: 'Utilisateurs',      route: '/utilisateurs',   icon: '👥', adminOnly: true, permission: 'users:read' },
+  { label: 'Rôles & perms',     route: '/roles',          icon: '🔑', adminOnly: true, permission: 'roles:read' },
+  { label: 'Paramètres',        route: '/settings',       icon: '⚙️', adminOnly: true },
+  { label: 'Scan & Historique', route: '/scan-historique', icon: '🧪', adminOnly: true },
 ];
 
 // Alias pour la sidebar (rétrocompatibilité)

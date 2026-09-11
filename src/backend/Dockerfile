@@ -38,9 +38,13 @@ WORKDIR /app
 ARG BLENDER_VERSION=5.1.2
 ARG BLENDER_MAJOR=5.1
 
-# Dépendances runtime pour Blender headless (--background, pas de display).
+# Dépendances runtime pour Blender headless (--background, pas de display) + tzdata
+# (base de données IANA des fuseaux horaires — requise par TimeZoneInfo.FindSystemTimeZoneById
+# côté sync planifiée, voir AdminSyncController.ScheduleSync : sans elle, "Europe/Paris" lève
+# une TimeZoneNotFoundException. Généralement déjà présente sur cette image Debian, installée
+# explicitement ici pour ne pas en dépendre implicitement).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        wget xz-utils ca-certificates \
+        wget xz-utils ca-certificates tzdata \
         libgl1 libegl1 libxi6 libxxf86vm1 libxfixes3 libxrender1 libxkbcommon0 \
         libxrandr2 libxinerama1 libxcursor1 libsm6 libice6 libglib2.0-0 libgomp1 \
     && rm -rf /var/lib/apt/lists/*

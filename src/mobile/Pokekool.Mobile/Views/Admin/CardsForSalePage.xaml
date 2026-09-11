@@ -20,7 +20,14 @@
                             <Grid ColumnDefinitions="56,*,Auto" ColumnSpacing="10">
                                 <Image Grid.Column="0" Source="{Binding CardImage}" HeightRequest="72" Aspect="AspectFit" />
                                 <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
-                                    <Label Text="{Binding CardName}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                    <Label FontAttributes="Bold" LineBreakMode="TailTruncation">
+                                        <Label.Text>
+                                            <MultiBinding Converter="{StaticResource FirstNotEmptyConverter}">
+                                                <Binding Path="DisplayName" />
+                                                <Binding Path="CardName" />
+                                            </MultiBinding>
+                                        </Label.Text>
+                                    </Label>
                                     <Label Style="{StaticResource SubtleLabel}">
                                         <Label.Text>
                                             <MultiBinding StringFormat="{}{0} · {1}">

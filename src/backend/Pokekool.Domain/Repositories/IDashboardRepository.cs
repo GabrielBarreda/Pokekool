@@ -2,6 +2,7 @@ namespace Pokekool.Domain.Repositories;
 
 public sealed record RecentlyScrapedCardProjection(
     string   CardId,
+    string?  TcgId,
     string   Name,
     string?  ImageSmall,
     string   SetName,

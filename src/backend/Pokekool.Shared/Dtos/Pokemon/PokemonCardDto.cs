@@ -5,6 +5,7 @@ public sealed record PokemonCardDto(
     string TcgId,
     string Number,
     string Name,
+    string DisplayName,
     string? Supertype,
     string[]? Subtypes,
     string? Rarity,

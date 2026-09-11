@@ -3,6 +3,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
+using Pgvector.EntityFrameworkCore;
 using Pokekool.Application.Abstractions;
 using Pokekool.Application.Chat;
 using Pokekool.Application.Collection.Scanning;
@@ -47,6 +48,10 @@ public static class DependencyInjection
 
         var dataSourceBuilder = new NpgsqlDataSourceBuilder(dbOptions.ConnectionString);
         dataSourceBuilder.EnableDynamicJson();
+        // Matching visuel de cartes (comparatif DINOv2, 2026-09-04) : type mapping pgvector
+        // <-> Pgvector.Vector, requis pour la shadow property "Embedding" sur PokemonCard
+        // (voir PokemonCardConfiguration + PokemonCardRepository).
+        dataSourceBuilder.UseVector();
         var dataSource = dataSourceBuilder.Build();
         services.AddSingleton(dataSource);
 
@@ -56,6 +61,11 @@ public static class DependencyInjection
             {
                 npgsql.MigrationsAssembly(typeof(PokekoolDbContext).Assembly.FullName);
                 npgsql.EnableRetryOnFailure(maxRetryCount: 3);
+                // UseVector() sur le NpgsqlDataSourceBuilder (ci-dessus) ne suffit pas : le model
+                // builder EF a aussi besoin du mapping pgvector au niveau NpgsqlDbContextOptionsBuilder
+                // pour résoudre "vector(384)" pendant OnModelCreating (sinon erreur au design-time
+                // avec dotnet ef, même si le data source runtime est correctement configuré).
+                npgsql.UseVector();
             });
             if (dbOptions.EnableSensitiveDataLogging) opt.EnableSensitiveDataLogging();
             if (dbOptions.EnableDetailedErrors) opt.EnableDetailedErrors();
@@ -69,6 +79,7 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
 
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.AddScoped<ICurrentDisplayLanguageService, CurrentDisplayLanguageService>();
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
 
         services.AddScoped<IUserRepository, UserRepository>();
@@ -79,6 +90,9 @@ public static class DependencyInjection
         services.AddScoped<IPokemonSeriesRepository, PokemonSeriesRepository>();
         services.AddScoped<IPokemonSetRepository, PokemonSetRepository>();
         services.AddScoped<IPokemonCardRepository, PokemonCardRepository>();
+        services.AddScoped<ICardTranslationRepository, CardTranslationRepository>();
+        services.AddScoped<Pokekool.Application.Pokemon.Services.ICardDisplayNameResolver,
+            Pokekool.Application.Pokemon.Services.CardDisplayNameResolver>();
         services.AddScoped<ICardMarketPriceRepository, CardMarketPriceRepository>();
         services.AddScoped<ICardGradedPriceRepository, CardGradedPriceRepository>();
         services.AddScoped<ICardPopulationRepository, CardPopulationRepository>();
@@ -93,6 +107,7 @@ public static class DependencyInjection
         services.AddScoped<IShopProductRepository, ShopProductRepository>();
         services.AddScoped<IShopStockRepository, ShopStockRepository>();
         services.AddScoped<IShopAppointmentRepository, ShopAppointmentRepository>();
+        services.AddScoped<IScanRunRepository, Pokekool.Infrastructure.Persistence.Repositories.ScanRunRepository>();
 
         // ---- Module Client ----
         services.AddScoped<IPurchaseRequestRepository, PurchaseRequestRepository>();
@@ -130,6 +145,15 @@ public static class DependencyInjection
         // ---- PokemonTCG HTTP client (bas niveau, utilisé par PokemonTcgProvider) ----
         services.Configure<PokemonTcgOptions>(config.GetSection(PokemonTcgOptions.SectionName));
         services.AddHttpClient<IPokemonTcgClient, PokemonTcgClient>()
+            .AddStandardResilienceHandler(options =>
+            {
+                options.Retry.MaxRetryAttempts = 3;
+                options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(60);
+            });
+
+        // ---- TCGdex HTTP client (noms de cartes traduits — voir ADR-004) ----
+        services.Configure<TcgDexOptions>(config.GetSection(TcgDexOptions.SectionName));
+        services.AddHttpClient<ITcgDexClient, TcgDexClient>()
             .AddStandardResilienceHandler(options =>
             {
                 options.Retry.MaxRetryAttempts = 3;
@@ -220,6 +244,32 @@ public static class DependencyInjection
         services.Configure<OllamaVisionOptions>(config.GetSection(OllamaVisionOptions.SectionName));
         services.AddSingleton<ICardVisionAnalyzer, OllamaCardVisionAnalyzer>();
         services.AddSingleton<IVaultKnowledgeService, VaultKnowledgeService>();
+
+        // Banc de test volume DINOv2 (2026-09-08) : scan-batch/_in → _out, voir RunScanBatchCommandHandler.
+        services.AddSingleton<Pokekool.Application.Collection.Scanning.IScanBatchFileStore,
+            Pokekool.Infrastructure.Collection.ScanBatch.ScanBatchFileStore>();
+
+        // Commit stock d'un ScanRun Boutique — extrait de RunScanBatchCommandHandler (2026-09-11)
+        // pour être appelable soit automatiquement (AddedToStockDirectly = true), soit
+        // explicitement via le bouton "Ajouter au stock" du récap. Voir ScanRunStockCommitter.
+        services.AddScoped<Pokekool.Application.Collection.Scanning.IScanRunStockCommitter,
+            Pokekool.Application.Collection.Scanning.ScanRunStockCommitter>();
+
+        // ---- Matching visuel (comparatif DINOv2, 2026-09-04 — voir Automatisations-LLM.md) ----
+        services.Configure<Pokekool.Infrastructure.Options.CardEmbeddingOptions>(
+            config.GetSection(Pokekool.Infrastructure.Options.CardEmbeddingOptions.SectionName));
+        services.AddHttpClient<ICardEmbeddingService, DinoCardEmbeddingService>((sp, client) =>
+        {
+            var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<
+                Pokekool.Infrastructure.Options.CardEmbeddingOptions>>().Value;
+            client.BaseAddress = new Uri(opts.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(opts.TimeoutSeconds);
+        });
+        // Vérifie au démarrage (tous environnements, pas seulement Development — le scan visuel
+        // doit fonctionner partout) s'il reste des cartes sans embedding et les indexe en tâche
+        // de fond, sans action manuelle. Voir EmbeddingReindexHostedService.
+        services.AddSingleton<EmbeddingReindexState>();
+        services.AddHostedService<EmbeddingReindexHostedService>();
 
         services.AddScoped<DbInitializer>();
 

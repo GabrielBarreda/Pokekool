@@ -24,6 +24,24 @@ public sealed class DataAggregator
     private readonly ILogger<DataAggregator>             _logger;
     private readonly ISyncProgressReporter               _progress;
     private readonly IServiceScopeFactory                _scopeFactory;
+    private readonly ICardTranslationRepository          _translationRepo;
+    private readonly ITcgDexClient                       _tcgDexClient;
+
+    /// <summary>Langue par défaut synchronisée automatiquement à la fin d'un import de set —
+    /// pas un littéral SQL, seulement la valeur par défaut passée en paramètre (voir ADR-004,
+    /// mémoire Obsidian du projet).</summary>
+    private const string AutoTranslationLanguage = "fr";
+
+    /// <summary>
+    /// Tentatives supplémentaires (en plus de la 1ère passe) sur les sets dont le fetch
+    /// catalogue échoue — typiquement un rate limit provider (ex. pokemontcg.io sans clé API).
+    /// 2 tentatives supplémentaires = 3 essais au total par set avant abandon définitif.
+    /// </summary>
+    private const int MaxCatalogRetryPasses = 2;
+
+    /// <summary>Délai entre deux passes de retry — supérieur aux fenêtres de rate limit "par
+    /// minute" habituelles, pour laisser le quota se reconstituer côté provider.</summary>
+    private static readonly TimeSpan CatalogRetryDelay = TimeSpan.FromSeconds(65);
 
     public DataAggregator(
         IEnumerable<ICardMetadataProvider>  metadataProviders,
@@ -36,7 +54,9 @@ public sealed class DataAggregator
         IUnitOfWork                         uow,
         ILogger<DataAggregator>             logger,
         ISyncProgressReporter               progress,
-        IServiceScopeFactory                scopeFactory)
+        IServiceScopeFactory                scopeFactory,
+        ICardTranslationRepository          translationRepo,
+        ITcgDexClient                       tcgDexClient)
     {
         _metadataProviders = metadataProviders;
         _priceProviders    = priceProviders;
@@ -49,6 +69,8 @@ public sealed class DataAggregator
         _logger            = logger;
         _progress          = progress;
         _scopeFactory      = scopeFactory;
+        _translationRepo   = translationRepo;
+        _tcgDexClient      = tcgDexClient;
     }
 
     /// <summary>
@@ -73,6 +95,10 @@ public sealed class DataAggregator
 
         var errors = new List<string>();
         int seriesUpserted = 0, setsUpserted = 0, cardsUpserted = 0, pricesUpserted = 0;
+        // Un événement SSE par set traversé (pas par carte — trop verbeux sur un catalogue
+        // complet) pour que l'overlay de progression web affiche ce sync comme n'importe quel
+        // autre (voir SyncProgressOverlayComponent, badge "📦 SYNC CATALOG" déjà géré côté UI).
+        var firstProgressEvent = true;
 
         var existingSeriesAll = await _seriesRepo.ListAsync(ct);
         var seriesByName      = existingSeriesAll
@@ -96,7 +122,29 @@ public sealed class DataAggregator
                 return new SyncCatalogResult(0, 0, 0, 0, [$"Set TCG introuvable : {setTcgId}"]);
         }
 
-        foreach (var setData in sets)
+        // ── Retry multi-passes sur échec provider (rate limit typiquement) ───────────
+        // 1ère passe sur tous les sets ; les sets en échec catalogue sont réessayés lors des
+        // passes suivantes (avec délai, pour laisser un éventuel rate limit se reconstituer),
+        // jusqu'à MaxCatalogRetryPasses tentatives supplémentaires. Un set encore en échec après
+        // la dernière passe est alors définitivement compté en erreur.
+        var setsToProcess          = sets.ToList();
+        var translationRetryQueue  = new List<(Guid SetId, string ProviderSetId, string SetName)>();
+
+        for (var pass = 0; setsToProcess.Count > 0; pass++)
+        {
+            var isLastPass = pass >= MaxCatalogRetryPasses;
+
+            if (pass > 0)
+            {
+                _logger.LogInformation(
+                    "SyncCatalog — passe de retry {Pass}/{Max} sur {Count} set(s) en échec, attente {Delay}s.",
+                    pass, MaxCatalogRetryPasses, setsToProcess.Count, CatalogRetryDelay.TotalSeconds);
+                await Task.Delay(CatalogRetryDelay, ct);
+            }
+
+            var stillFailing = new List<CardSetData>();
+
+        foreach (var setData in setsToProcess)
         {
             ct.ThrowIfCancellationRequested();
 
@@ -146,9 +194,29 @@ public sealed class DataAggregator
 
             await _uow.SaveChangesAsync(ct);
 
+            // ---- Traductions (auto, best-effort) — AVANT le skip catalogue ----
+            // Un set "déjà synchronisé" (skip catalogue ci-dessous) peut très bien avoir des
+            // cartes en base sans traduction (ex. sets importés avant que ce pipeline existe).
+            // Cet appel tourne pour CHAQUE set traversé, skip ou non : SyncSetTranslationsAsync
+            // ne retraite que les cartes réellement sans traduction (voir son implémentation),
+            // donc aucun surcoût pour un set déjà entièrement traduit.
+            var translationsOk1 = await SyncSetTranslationsAsync(setEntity.Id, setData.ProviderSetId, AutoTranslationLanguage, ct);
+            if (!translationsOk1)
+                translationRetryQueue.Add((setEntity.Id, setData.ProviderSetId, setData.Name));
+
             if (!forceRefresh && existingSet is not null && existingSet.Cards.Count > 0)
             {
                 _logger.LogDebug("Set {SetId} déjà synchronisé, skip.", setData.ProviderSetId);
+                _progress.Report(new SyncProgressEvent(
+                    SetName:    setData.Name,
+                    CardName:   "déjà à jour",
+                    CardNumber: "",
+                    Grades:     [],
+                    Success:    true,
+                    Timestamp:  DateTime.UtcNow,
+                    SyncType:   "catalog",
+                    TotalItems: firstProgressEvent ? sets.Count : null));
+                firstProgressEvent = false;
                 continue;
             }
 
@@ -161,8 +229,28 @@ public sealed class DataAggregator
             catch (ProviderException ex)
             {
                 var msg = $"Provider '{ex.ProviderName}' a échoué sur set '{setData.ProviderSetId}' : {ex.Message}";
-                _logger.LogWarning(ex, "{Message}", msg);
+
+                if (!isLastPass)
+                {
+                    // Rate limit probable : on retente ce set lors de la prochaine passe plutôt
+                    // que de le compter en erreur définitive tout de suite.
+                    _logger.LogWarning(ex, "{Message} — sera retenté (passe {Pass}).", msg, pass + 1);
+                    stillFailing.Add(setData);
+                    continue;
+                }
+
+                _logger.LogWarning(ex, "{Message} — abandon après {Max} tentative(s) supplémentaire(s).", msg, MaxCatalogRetryPasses);
                 errors.Add(msg);
+                _progress.Report(new SyncProgressEvent(
+                    SetName:    setData.Name,
+                    CardName:   "échec provider",
+                    CardNumber: "",
+                    Grades:     [],
+                    Success:    false,
+                    Timestamp:  DateTime.UtcNow,
+                    SyncType:   "catalog",
+                    TotalItems: firstProgressEvent ? sets.Count : null));
+                firstProgressEvent = false;
                 continue;
             }
 
@@ -219,6 +307,18 @@ public sealed class DataAggregator
 
             await _uow.SaveChangesAsync(ct);
 
+            // ---- Traductions (auto, best-effort) — APRÈS upsert des cartes de ce run ----
+            // Couvre les cartes nouvellement insérées ET celles mises à jour (Update()) dans
+            // cette itération — un appel précédent (avant le skip catalogue, plus haut) a déjà
+            // couvert le cas "set skip, cartes déjà en base" ; celui-ci couvre le cas "set
+            // traité ce run, certaines cartes existaient déjà mais sans traduction". Idempotent
+            // (voir SyncSetTranslationsAsync), donc pas de risque à l'appeler systématiquement.
+            // Ne bloque jamais le sync catalogue : TCGdex peut être injoignable (ex. politique
+            // réseau côté hébergement) sans empêcher l'import des cartes elles-mêmes.
+            var translationsOk2 = await SyncSetTranslationsAsync(setEntity.Id, setData.ProviderSetId, AutoTranslationLanguage, ct);
+            if (!translationsOk2)
+                translationRetryQueue.Add((setEntity.Id, setData.ProviderSetId, setData.Name));
+
             if (pricesToSave.Count > 0)
             {
                 await _priceRepo.UpsertBatchAsync(pricesToSave, ct);
@@ -235,6 +335,43 @@ public sealed class DataAggregator
             _logger.LogInformation(
                 "Set {SetId} : {Cards} cartes, {Prices} prix bruts, {Graded} prix gradés.",
                 setData.ProviderSetId, cards.Count, pricesToSave.Count, gradedToSave.Count);
+
+            _progress.Report(new SyncProgressEvent(
+                SetName:    setData.Name,
+                CardName:   $"{cards.Count} carte(s)",
+                CardNumber: "",
+                Grades:     [],
+                Success:    true,
+                Timestamp:  DateTime.UtcNow,
+                SyncType:   "catalog",
+                TotalItems: firstProgressEvent ? sets.Count : null));
+            firstProgressEvent = false;
+        }
+
+            setsToProcess = stillFailing;
+        }
+
+        // ── Retry final des traductions en échec (TCGdex indisponible/rate-limit pendant le run) ──
+        // Une seule tentative supplémentaire suffit ici : contrairement au catalogue (bloquant
+        // pour l'import des cartes), une traduction manquante n'empêche rien — elle sera de
+        // toute façon retentée automatiquement lors du prochain SyncCatalog (voir l'appel
+        // "AVANT le skip catalogue" plus haut, qui couvre les sets déjà en base).
+        if (translationRetryQueue.Count > 0)
+        {
+            _logger.LogInformation(
+                "SyncCatalog — retry final traductions sur {Count} set(s).", translationRetryQueue.Count);
+
+            foreach (var (retrySetId, retryProviderSetId, retrySetName) in translationRetryQueue)
+            {
+                ct.ThrowIfCancellationRequested();
+                var ok = await SyncSetTranslationsAsync(retrySetId, retryProviderSetId, AutoTranslationLanguage, ct);
+                if (!ok)
+                {
+                    _logger.LogWarning(
+                        "SyncCatalog — traduction toujours en échec pour le set {Set} après retry final.",
+                        retrySetName);
+                }
+            }
         }
 
         _logger.LogInformation(
@@ -242,6 +379,71 @@ public sealed class DataAggregator
             seriesUpserted, setsUpserted, cardsUpserted, pricesUpserted, errors.Count);
 
         return new SyncCatalogResult(seriesUpserted, setsUpserted, cardsUpserted, pricesUpserted, errors);
+    }
+
+    /// <summary>
+    /// Traduit les cartes d'un set n'ayant pas encore de nom pour la langue donnée, via TCGdex.
+    /// Best-effort : toute erreur (réseau, set introuvable côté TCGdex, etc.) est loggée et
+    /// avalée — ne doit jamais faire échouer SyncCatalogAsync (voir appel ci-dessus).
+    /// Retourne false en cas d'échec (pour permettre à l'appelant de retenter ce set plus tard —
+    /// voir translationRetryQueue dans SyncCatalogAsync), true sinon (y compris no-op).
+    /// </summary>
+    private async Task<bool> SyncSetTranslationsAsync(
+        Guid setId, string providerSetId, string language, CancellationToken ct)
+    {
+        try
+        {
+            var cardIdsToTranslate = await _translationRepo.GetCardIdsWithoutTranslationAsync(setId, language, ct);
+            if (cardIdsToTranslate.Count == 0)
+                return true;
+
+            var cardsInSet = await _cardRepo.GetIdAndTcgIdBySetIdAsync(setId, ct);
+            var candidateCards = cardsInSet.Where(c => cardIdsToTranslate.Contains(c.Id)).ToList();
+            if (candidateCards.Count == 0)
+                return true;
+
+            var tcgDexNames = await _tcgDexClient.GetCardNamesBySetAsync(providerSetId, language, ct);
+            if (tcgDexNames.Count == 0)
+            {
+                _logger.LogDebug(
+                    "Set {SetId} : aucun nom '{Language}' retourné par TCGdex, skip traduction auto.",
+                    providerSetId, language);
+                return false;
+            }
+
+            var nameByTcgId = tcgDexNames
+                .GroupBy(n => n.TcgId, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().Name, StringComparer.OrdinalIgnoreCase);
+
+            var toUpsert = new List<CardTranslation>();
+            foreach (var (cardId, tcgId) in candidateCards)
+            {
+                if (nameByTcgId.TryGetValue(tcgId, out var translatedName) &&
+                    !string.IsNullOrWhiteSpace(translatedName))
+                {
+                    toUpsert.Add(CardTranslation.Create(cardId, language, translatedName));
+                }
+            }
+
+            if (toUpsert.Count == 0)
+                return false;
+
+            await _translationRepo.UpsertRangeAsync(toUpsert, ct);
+            await _uow.SaveChangesAsync(ct);
+
+            _logger.LogInformation(
+                "Traductions '{Language}' auto-sync pour le set {SetId} : {Count} cartes.",
+                language, providerSetId, toUpsert.Count);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Échec traduction auto '{Language}' pour le set {SetId} — sync catalogue non impacté.",
+                language, providerSetId);
+            return false;
+        }
     }
 
     /// <summary>

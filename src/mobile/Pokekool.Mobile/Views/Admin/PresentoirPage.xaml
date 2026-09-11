@@ -25,6 +25,7 @@
                                     <Label FontAttributes="Bold" LineBreakMode="TailTruncation">
                                         <Label.Text>
                                             <MultiBinding Converter="{StaticResource FirstNotEmptyConverter}">
+                                                <Binding Path="DisplayName" />
                                                 <Binding Path="CardName" />
                                                 <Binding Path="ProductName" />
                                             </MultiBinding>

@@ -7,26 +7,38 @@ name: pokekool-dev
 # Services & ports :
 #   Web (nginx + Angular) : 8090   ← point d'entrée navigateur
 #   API (.NET + Blender)   : 5080
-#   PostgreSQL             : 5434
+#   PostgreSQL (+pgvector) : 5434
 #   Redis                  : 6382
 #   Ollama (LLM/vision)    : 11434
+#   Card Embedding (DINOv2): 8500
 #   Adminer                : 8091
 #
 # NB Ollama : les modèles ne sont pas embarqués. Après le premier démarrage :
 #   docker exec -it pokekool-ollama ollama pull qwen2.5:7b
 #   docker exec -it pokekool-ollama ollama pull llava:7b
+#
+# NB Card Embedding : DINOv2 (Meta, licence Apache 2.0) est téléchargé au premier
+# démarrage via torch.hub et mis en cache dans le volume card-embedding-cache.
+# Sert le matching visuel de cartes en complément (comparatif) du LLM vision Ollama —
+# voir 03-Metier/Automatisations-LLM.md § Matching visuel (DINOv2).
 
 services:
 
   postgres:
-    image: postgres:16-alpine
+    # Image pgvector/pgvector : Postgres 16 + extension pgvector préinstallée
+    # (CREATE EXTENSION vector activée par la migration EF dédiée, pas ici).
+    image: pgvector/pgvector:pg16
     container_name: pokekool-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-pokekool}
       POSTGRES_USER: ${POSTGRES_USER:-pokekool}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pokekool_dev_password}
-      PGDATA: /var/lib/postgresql/data/pgdata
+      # PGDATA custom retiré (2026-09-07) : provoquait "mkdir: Permission denied" sur
+      # /var/lib/postgresql/data/pgdata avec pgvector/pgvector:pg16 sous Docker Desktop
+      # Windows — l'entrypoint de cette image ne chown pas toujours correctement le
+      # sous-dossier PGDATA sur un volume nommé fraîchement créé. On laisse Postgres
+      # utiliser directement la racine du volume monté (comportement par défaut, plus robuste).
     ports:
       - "${POSTGRES_PORT:-5434}:5432"
     volumes:
@@ -76,6 +88,35 @@ services:
     #           count: all
     #           capabilities: [gpu]
 
+  card-embedding:
+    build:
+      context: ../services/card-embedding
+      dockerfile: Dockerfile
+    container_name: pokekool-card-embedding
+    restart: unless-stopped
+    ports:
+      - "${CARD_EMBEDDING_PORT:-8500}:8500"
+    volumes:
+      # Cache des poids DINOv2 téléchargés via torch.hub — évite un re-téléchargement
+      # à chaque rebuild/redémarrage du container.
+      - card-embedding-cache:/root/.cache/torch
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8500/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - pokekool-net
+    # GPU (optionnel, décommenter si NVIDIA + nvidia-container-toolkit dispo) :
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
   api:
     build:
       context: ..
@@ -92,6 +133,7 @@ services:
       Ollama__BaseUrl: "http://ollama:11434"
       OllamaVision__BaseUrl: "http://ollama:11434"
       OllamaChat__BaseUrl: "http://ollama:11434"
+      CardEmbedding__BaseUrl: "http://card-embedding:8500"
       Blender__ExecutablePath: "blender"
     ports:
       - "${API_PORT:-5080}:8080"
@@ -105,6 +147,8 @@ services:
       redis:
         condition: service_healthy
       ollama:
+        condition: service_started
+      card-embedding:
         condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/healthz/live || exit 1"]
@@ -151,6 +195,8 @@ volumes:
     name: pokekool-redis-data
   ollama-data:
     name: pokekool-ollama-data
+  card-embedding-cache:
+    name: pokekool-card-embedding-cache
   api-models:
     name: pokekool-api-models
   api-uploads:

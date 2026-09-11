@@ -20,7 +20,8 @@ export class MarketService {
     return this.http.get<SetFiltersDto>(`/api/v1/market/sets/${setId}/filters`);
   }
 
-  getMarketCards(setId: string, filters: MarketFilters): Observable<PagedResult<MarketCardDto>> {
+  /** setId null = mode "Tous les sets" : catalogue entier, paginé côté serveur. */
+  getMarketCards(setId: string | null, filters: MarketFilters): Observable<PagedResult<MarketCardDto>> {
     let params = new HttpParams()
       .set('page', filters.page)
       .set('pageSize', filters.pageSize);
@@ -29,10 +30,11 @@ export class MarketService {
     if (filters.rarity) params = params.set('rarity', filters.rarity);
     if (filters.supertype) params = params.set('supertype', filters.supertype);
 
-    return this.http.get<PagedResult<MarketCardDto>>(
-      `/api/v1/market/sets/${setId}/cards`,
-      { params }
-    );
+    const url = setId
+      ? `/api/v1/market/sets/${setId}/cards`
+      : `/api/v1/market/cards`;
+
+    return this.http.get<PagedResult<MarketCardDto>>(url, { params });
   }
 
   syncCatalog(forceRefresh = false, setTcgId?: string): Observable<SyncCatalogResultDto> {

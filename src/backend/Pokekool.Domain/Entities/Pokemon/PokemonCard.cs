@@ -18,6 +18,7 @@ public sealed class PokemonCard : Entity
     public bool IsLegal { get; private set; } = true;
     // Navigation
     public PokemonSet? Set { get; private set; }
+    public ICollection<CardTranslation> Translations { get; private set; } = new List<CardTranslation>();
 
     private PokemonCard() { }
 

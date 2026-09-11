@@ -122,7 +122,10 @@ export interface ShopProductDto {
   shopId: string;
   type: ShopProductType;
   cardId: string | null;
+  cardTcgId: string | null;
   cardName: string | null;
+  /** Nom traduit selon la langue d'affichage préférée du client (résolu serveur). */
+  displayName: string | null;
   cardImage: string | null;
   productName: string | null;
   language: CardLanguage;
@@ -168,7 +171,10 @@ export interface ShopStockDto {
   id: string;
   shopId: string;
   cardId: string | null;
+  cardTcgId: string | null;
   cardName: string | null;
+  /** Nom traduit selon la langue d'affichage préférée du client (résolu serveur). */
+  displayName: string | null;
   cardImage: string | null;
   productName: string | null;
   type: ShopProductType;
@@ -245,7 +251,10 @@ export interface AppointmentFilters {
 // ── Card autocomplete (réutilise l'endpoint pokemon/cards) ─────────────────────
 export interface CardSummary {
   id: string;
+  tcgId: string;
   name: string;
+  /** Nom traduit selon la langue d'affichage préférée du client (résolu serveur). */
+  displayName: string | null;
   imageSmall: string | null;
   setName: string;
 }

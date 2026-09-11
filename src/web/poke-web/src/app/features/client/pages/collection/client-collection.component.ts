@@ -68,14 +68,14 @@ import { PokemonBinderComponent, BinderItem } from '@shared/ui/pokemon-binder/po
         <div class="grid">
           @for (card of cards(); track card.id) {
             <button type="button" class="card" [class.card--owned]="card.isOwned"
-                    (click)="toggleOwned(card)" (contextmenu)="onContextMenu($event, card)" [title]="card.name">
+                    (click)="toggleOwned(card)" (contextmenu)="onContextMenu($event, card)" [title]="card.displayName || card.name">
               @if (card.imageSmall) {
-                <img [src]="card.imageSmall" [alt]="card.name" loading="lazy" />
+                <img [src]="card.imageSmall" [alt]="card.displayName || card.name" loading="lazy" />
               } @else {
-                <div class="card__placeholder">{{ card.name }}</div>
+                <div class="card__placeholder">{{ card.displayName || card.name }}</div>
               }
               <span class="card__check" [class.is-on]="card.isOwned">✓</span>
-              <span class="card__name">{{ card.name }}</span>
+              <span class="card__name">{{ card.displayName || card.name }}</span>
             </button>
           }
         </div>
@@ -159,6 +159,7 @@ export class ClientCollectionComponent implements OnInit {
       imageUrl: card.imageSmall,
       imageLargeUrl: card.imageLarge ?? card.imageSmall,
       name: card.name,
+      displayName: card.displayName,
       owned: card.isOwned,
     }))
   );
@@ -271,7 +272,7 @@ export class ClientCollectionComponent implements OnInit {
   requestService(card: CollectionCardDto, service: 'restoration' | 'pre_grading'): void {
     this.contextMenu.set(null);
     this.router.navigate(['/client/rdv/new'], {
-      queryParams: { service, cardId: card.id, cardName: card.name },
+      queryParams: { service, cardId: card.id, cardName: card.displayName || card.name },
     });
   }
 

@@ -82,9 +82,9 @@ interface PlvCategory { type: ShopProductType; label: string; products: ShopProd
           <aside class="plv3d__panel">
             <button class="plv3d__panel-close" (click)="closePanel()">✕</button>
             @if (p.photoUrl || p.cardImage) {
-              <img class="plv3d__panel-img" [src]="p.photoUrl || p.cardImage" [alt]="p.cardName || p.productName" />
+              <img class="plv3d__panel-img" [src]="p.photoUrl || p.cardImage" [alt]="p.displayName || p.cardName || p.productName" />
             }
-            <h3 class="plv3d__panel-name">{{ p.cardName || p.productName }}</h3>
+            <h3 class="plv3d__panel-name">{{ p.displayName || p.cardName || p.productName }}</h3>
             <div class="plv3d__panel-price">{{ p.price | number:'1.2-2' }} {{ p.currency }}</div>
             <dl class="plv3d__panel-meta">
               <div><dt>En vente depuis</dt><dd>{{ p.createdAt | date:'dd/MM/yyyy HH:mm' }}</dd></div>
@@ -606,7 +606,7 @@ export class PresentoirPlvViewerComponent implements OnDestroy {
 
   notifyInterested(p: ShopProductDto): void {
     // Phase B : branchera le système de notifications in-app.
-    this.toast.info(`Notifications in-app à venir — ${this.interested() ?? 0} client(s) pour « ${p.cardName || p.productName} ».`);
+    this.toast.info(`Notifications in-app à venir — ${this.interested() ?? 0} client(s) pour « ${p.displayName || p.cardName || p.productName} ».`);
   }
 
   // ── Resize ──────────────────────────────────────────────────────────────────

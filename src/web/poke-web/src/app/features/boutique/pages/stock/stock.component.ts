@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { Subject, debounceTime, switchMap } from 'rxjs';
+import { Subject, catchError, debounceTime, forkJoin, map, of, switchMap } from 'rxjs';
 import { StockStore } from '../../stock.store';
 import { BoutiqueService } from '../../boutique.service';
 import {
@@ -51,16 +51,31 @@ const EMPTY = (): ShopStockRequest => ({
       } @else if (store.items().length === 0) {
         <app-empty-state icon="📦" title="Stock vide" description="Ajoutez une première entrée de stock." />
       } @else {
+        @if (selectAll()) {
+          <div class="bulk-actions">
+            <span class="bulk-label">Action groupée sur les {{ store.items().length }} ligne(s) affichée(s) :</span>
+            <button *hasPermission="'shop:write'" class="ic ic--display" (click)="openBulkPresentoirModal()" title="Tout mettre en présentoir">🏪 Présentoir</button>
+            <button *hasPermission="'shop:write'" class="ic ic--danger" (click)="bulkDeleteConfirm.set(true)" title="Tout retirer">🗑 Retirer</button>
+          </div>
+        }
         <table class="tbl">
           <thead>
-            <tr><th>Article</th><th>Type</th><th>Grade/État</th><th>Total</th><th>Dispo</th><th>Réservé</th><th>Prix achat</th><th></th></tr>
+            <tr>
+              <th>Article</th><th>Type</th><th>Grade/État</th><th>Total</th><th>Dispo</th><th>Réservé</th><th>Prix achat</th>
+              <th class="cell-actions-header">
+                <label class="select-all">
+                  <input type="checkbox" [ngModel]="selectAll()" (ngModelChange)="selectAll.set($event)" />
+                  Tout sélectionner
+                </label>
+              </th>
+            </tr>
           </thead>
           <tbody>
             @for (s of store.items(); track s.id) {
               <tr>
                 <td class="cell-name">
                   @if (s.cardImage) { <img class="thumb" [src]="s.cardImage" alt="" /> }
-                  <span>{{ s.cardName || s.productName }}</span>
+                  <span>{{ s.displayName || s.cardName || s.productName }}</span>
                 </td>
                 <td>{{ typeLabels[s.type] }}</td>
                 <td>{{ s.gradingCompany ? s.gradingCompany + ' ' + (s.gradeValue ?? '') : (conditionLabel(s.condition) || '—') }}</td>
@@ -69,9 +84,11 @@ const EMPTY = (): ShopStockRequest => ({
                 <td>{{ s.quantityReserved }}</td>
                 <td class="internal">{{ s.purchasePrice != null ? (s.purchasePrice | number:'1.2-2') + ' ' + (s.purchaseCurrency || '') : '—' }}</td>
                 <td class="cell-actions">
-                  <button *hasPermission="'shop:write'" class="ic ic--display" (click)="openPresentoirModal(s)" title="Mettre en présentoir">🏪</button>
-                  <button *hasPermission="'shop:write'" class="ic" (click)="openEdit(s)" title="Modifier">✎</button>
-                  <button *hasPermission="'shop:write'" class="ic ic--danger" (click)="deleteTarget.set(s)" title="Retirer">🗑</button>
+                  @if (!selectAll()) {
+                    <button *hasPermission="'shop:write'" class="ic ic--display" (click)="openPresentoirModal(s)" title="Mettre en présentoir">🏪</button>
+                    <button *hasPermission="'shop:write'" class="ic" (click)="openEdit(s)" title="Modifier">✎</button>
+                    <button *hasPermission="'shop:write'" class="ic ic--danger" (click)="deleteTarget.set(s)" title="Retirer">🗑</button>
+                  }
                 </td>
               </tr>
             }
@@ -92,7 +109,7 @@ const EMPTY = (): ShopStockRequest => ({
               @if (cardResults().length) {
                 <ul class="ac">
                   @for (c of cardResults(); track c.id) {
-                    <li (click)="pickCard(c)">@if (c.imageSmall) { <img [src]="c.imageSmall" alt="" /> } {{ c.name }} <span class="muted">· {{ c.setName }}</span></li>
+                    <li (click)="pickCard(c)">@if (c.imageSmall) { <img [src]="c.imageSmall" alt="" /> } {{ c.displayName || c.name }} <span class="muted">· {{ c.setName }}</span></li>
                   }
                 </ul>
               }
@@ -176,9 +193,41 @@ const EMPTY = (): ShopStockRequest => ({
 
     @if (deleteTarget()) {
       <app-confirm-dialog title="Retirer du stock"
-        [message]="'Retirer « ' + (deleteTarget()!.cardName || deleteTarget()!.productName) + ' » du stock ?'"
+        [message]="'Retirer « ' + (deleteTarget()!.displayName || deleteTarget()!.cardName || deleteTarget()!.productName) + ' » du stock ?'"
         confirmLabel="Retirer" variant="danger"
         (confirmed)="doDelete()" (cancelled)="deleteTarget.set(null)" />
+    }
+
+    @if (bulkDeleteConfirm()) {
+      <app-confirm-dialog title="Retirer toutes les lignes"
+        [message]="'Retirer les ' + store.items().length + ' entrée(s) affichée(s) du stock ? Cette action est irréversible.'"
+        confirmLabel="Tout retirer" variant="danger"
+        (confirmed)="doBulkDelete()" (cancelled)="bulkDeleteConfirm.set(false)" />
+    }
+
+    <!-- Modale : mettre en présentoir (groupé) -->
+    @if (bulkPresentoirModal()) {
+      <div class="modal-backdrop" (click)="bulkPresentoirModal.set(false)">
+        <div class="modal-box" (click)="$event.stopPropagation()">
+          <p class="modal-title">Mettre en présentoir — {{ store.items().length }} ligne(s)</p>
+          <p class="modal-sub">Prix et devise ci-dessous appliqués à toutes les lignes affichées. Chaque ligne garde sa propre quantité disponible.</p>
+
+          <div class="fg">
+            <label class="label">Prix de vente (requis)</label>
+            <div class="inline">
+              <input class="input" type="number" min="0" step="0.01" placeholder="0.00" [(ngModel)]="bulkPresentoirPrice" />
+              <input class="input cur" [(ngModel)]="bulkPresentoirCurrency" />
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn-ghost" (click)="bulkPresentoirModal.set(false)">Annuler</button>
+            <button class="btn-primary" [disabled]="bulkPresentoirSaving() || !bulkPresentoirPrice" (click)="confirmBulkPresentoir()">
+              {{ bulkPresentoirSaving() ? '…' : 'Mettre tout en présentoir' }}
+            </button>
+          </div>
+        </div>
+      </div>
     }
 
     <!-- Modale : mettre en présentoir -->
@@ -186,7 +235,7 @@ const EMPTY = (): ShopStockRequest => ({
       <div class="modal-backdrop" (click)="presentoirModal.set(null)">
         <div class="modal-box" (click)="$event.stopPropagation()">
           <p class="modal-title">Mettre en présentoir</p>
-          <p class="modal-sub">{{ s.cardName || s.productName }} · {{ conditionLabel(s.condition) }}</p>
+          <p class="modal-sub">{{ s.displayName || s.cardName || s.productName }} · {{ conditionLabel(s.condition) }}</p>
 
           <div class="fg">
             <label class="label">Prix de vente (requis)</label>
@@ -227,6 +276,14 @@ const EMPTY = (): ShopStockRequest => ({
     .thumb { width: 28px; height: 39px; object-fit: cover; border-radius: 3px; }
     .internal { color: var(--color-text-muted); }
     .cell-actions { text-align: right; white-space: nowrap; }
+    .cell-actions-header { text-align: right; white-space: nowrap; font-weight: var(--font-weight-medium); }
+    .select-all { display: inline-flex; align-items: center; gap: var(--space-1); cursor: pointer; font-weight: var(--font-weight-medium); }
+    .bulk-actions { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3);
+      border: 1px solid var(--color-border-default); border-radius: var(--radius-md); background: var(--color-surface-raised); }
+    .bulk-label { font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-right: auto; }
+    .bulk-actions .ic { font-size: var(--font-size-sm); padding: var(--space-1) var(--space-3);
+      border: 1px solid var(--color-border-default); border-radius: var(--radius-md); }
+    .modal-hint { font-size: var(--font-size-sm); color: var(--color-text-muted); margin: 0; }
     .ic { border: none; background: transparent; cursor: pointer; font-size: 15px; padding: 4px 6px; border-radius: var(--radius-sm); }
     .ic:hover { background: var(--color-surface-raised); }
     .ic--danger:hover { color: var(--color-semantic-danger); }
@@ -279,6 +336,18 @@ export class StockComponent implements OnInit {
   readonly editId = signal<string | null>(null);
   readonly deleteTarget = signal<ShopStockDto | null>(null);
 
+  // ── Sélection groupée ────────────────────────────────────────
+  // Un seul toggle global (pas de sélection ligne par ligne) : coché, il masque les 3 boutons
+  // d'action sur chaque ligne et fait apparaître une seule barre d'action au-dessus du tableau,
+  // qui agit sur TOUTES les lignes actuellement affichées (store.items(), donc déjà filtrées par
+  // la recherche/le type en cours). Voir doBulkDelete / confirmBulkPresentoir.
+  readonly selectAll = signal(false);
+  readonly bulkDeleteConfirm = signal(false);
+  readonly bulkPresentoirModal  = signal(false);
+  readonly bulkPresentoirSaving = signal(false);
+  bulkPresentoirPrice: number | null = null;
+  bulkPresentoirCurrency = 'EUR';
+
   // ── Présentoir modal ─────────────────────────────────────────
   readonly presentoirModal   = signal<ShopStockDto | null>(null);
   readonly presentoirSaving  = signal(false);
@@ -321,13 +390,13 @@ export class StockComponent implements OnInit {
       quantityTotal: s.quantityTotal, quantityAvailable: s.quantityAvailable, quantityReserved: s.quantityReserved,
       purchasePrice: s.purchasePrice, purchaseCurrency: s.purchaseCurrency, notes: s.notes,
     };
-    this.pickedCardName.set(s.cardName ?? '');
+    this.pickedCardName.set(s.displayName || s.cardName || '');
     this.modalOpen.set(true);
   }
   closeModal(): void { this.modalOpen.set(false); this.cardResults.set([]); this.cardQuery.set(''); }
 
   onCardSearch(q: string): void { this.cardQuery.set(q); if (q.trim().length >= 2) this.cardSearch$.next(q.trim()); }
-  pickCard(c: CardSummary): void { this.draft.cardId = c.id; this.draft.productName = null; this.pickedCardName.set(c.name); this.cardResults.set([]); this.cardQuery.set(''); }
+  pickCard(c: CardSummary): void { this.draft.cardId = c.id; this.draft.productName = null; this.pickedCardName.set(c.displayName || c.name); this.cardResults.set([]); this.cardQuery.set(''); }
   clearCard(): void { this.draft.cardId = null; this.pickedCardName.set(''); }
 
   isValid(): boolean { return (!!this.draft.cardId || !!this.draft.productName?.trim()) && this.draft.quantityTotal >= 0; }
@@ -373,12 +442,64 @@ export class StockComponent implements OnInit {
       next: () => {
         this.presentoirSaving.set(false);
         this.presentoirModal.set(null);
-        this.toast.show({ message: `${s.cardName ?? s.productName} ajouté au présentoir.`, type: 'success' });
+        this.toast.show({ message: `${s.displayName || s.cardName || s.productName} ajouté au présentoir.`, type: 'success' });
       },
       error: () => {
         this.presentoirSaving.set(false);
         this.toast.show({ message: 'Échec de la mise en présentoir.', type: 'danger' });
       },
+    });
+  }
+
+  // ── Actions groupées ("Tout sélectionner") ─────────────────────
+  doBulkDelete(): void {
+    this.bulkDeleteConfirm.set(false);
+    const ids = this.store.items().map(s => s.id);
+    if (ids.length === 0) return;
+    this.store.removeMany({ ids });
+    this.selectAll.set(false);
+  }
+
+  openBulkPresentoirModal(): void {
+    this.bulkPresentoirPrice = null;
+    this.bulkPresentoirCurrency = 'EUR';
+    this.bulkPresentoirModal.set(true);
+  }
+
+  /** Prix/devise communs saisis une fois, appliqués à toutes les lignes affichées — chaque ligne
+   * garde son propre cardId/type/condition/quantité disponible. Tolérant aux échecs partiels
+   * (une ligne en échec n'empêche pas les autres, voir toasts de résumé). */
+  confirmBulkPresentoir(): void {
+    const price = this.bulkPresentoirPrice;
+    const items = this.store.items();
+    if (!price || items.length === 0 || this.bulkPresentoirSaving()) return;
+    this.bulkPresentoirSaving.set(true);
+
+    const requests = items.map(s => this.http.post('/api/v1/admin/shop/products', {
+      type:           s.type,
+      cardId:         s.cardId,
+      productName:    s.cardName ?? s.productName,
+      language:       s.language ?? 'EN',
+      condition:      s.condition,
+      gradingCompany: s.gradingCompany,
+      gradeValue:     s.gradeValue,
+      price,
+      currency:       this.bulkPresentoirCurrency,
+      quantity:       Math.max(1, s.quantityAvailable),
+      isAvailable:    true,
+      description:    null,
+      photoUrl:       s.cardImage,
+    }).pipe(map(() => true), catchError(() => of(false))));
+
+    forkJoin(requests).subscribe(results => {
+      this.bulkPresentoirSaving.set(false);
+      this.bulkPresentoirModal.set(false);
+      this.selectAll.set(false);
+
+      const okCount = results.filter(Boolean).length;
+      const failCount = results.length - okCount;
+      if (okCount > 0) this.toast.show({ message: `${okCount} ligne(s) mise(s) en présentoir.`, type: 'success' });
+      if (failCount > 0) this.toast.show({ message: `${failCount} échec(s) lors de la mise en présentoir.`, type: 'danger' });
     });
   }
 }

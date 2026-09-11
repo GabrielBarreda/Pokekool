@@ -44,7 +44,9 @@ public sealed record StoragePricePointDto(
 /// <summary>Détail comptoir d'une carte en stock : condition/grade, prix estimé, valeurs récentes même grade.</summary>
 public sealed record StorageCardDetailDto(
     Guid? CardId,
+    string? TcgId,
     string Name,
+    string DisplayName,
     string? SetName,
     string? ImageSmall,
     string? ImageLarge,
@@ -63,7 +65,9 @@ public sealed record StorageBinderCardDto(
     string OwnerType,
     Guid OwnerId,
     Guid? CardId,
+    string? TcgId,
     string Name,
+    string DisplayName,
     string? ImageSmall,
     string? ImageLarge,
     string? SetName,

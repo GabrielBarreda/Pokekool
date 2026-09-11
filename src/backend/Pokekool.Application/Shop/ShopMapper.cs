@@ -12,15 +12,20 @@ internal static class ShopMapper
         s.HoursJson, s.Services, s.InstagramUrl, s.TiktokUrl, s.PhotoUrls,
         s.PlvModel3dUrl, s.CreatedAt, s.UpdatedAt);
 
-    public static ShopProductDto ToDto(ShopProduct p, PokemonCard? card) => new(
-        p.Id, p.ShopId, p.Type.ToString(), p.CardId,
-        card?.Name, card?.ImageSmall,
+    // displayName est résolu en amont par l'appelant (ICardDisplayNameResolver a besoin d'un
+    // appel async / de la langue courante, indisponibles ici puisque ShopMapper reste statique
+    // et synchrone) — repli sur card?.Name quand aucune traduction n'a été résolue (card null,
+    // ou pas de traduction connue pour la langue courante).
+    public static ShopProductDto ToDto(ShopProduct p, PokemonCard? card, string? displayName) => new(
+        p.Id, p.ShopId, p.Type.ToString(), p.CardId, card?.TcgId,
+        card?.Name, displayName ?? card?.Name, card?.ImageSmall,
         p.ProductName, p.Language, p.Condition, p.GradingCompany, p.GradeValue,
         p.Price, p.Currency, p.Quantity, p.IsAvailable, p.Description, p.PhotoUrl,
         p.CreatedAt, p.UpdatedAt);
 
-    public static ShopStockDto ToDto(ShopStock s, PokemonCard? card) => new(
-        s.Id, s.ShopId, s.CardId, card?.Name, card?.ImageSmall, s.ProductName,
+    public static ShopStockDto ToDto(ShopStock s, PokemonCard? card, string? displayName) => new(
+        s.Id, s.ShopId, s.CardId, card?.TcgId, card?.Name, displayName ?? card?.Name, card?.ImageSmall,
+        s.ProductName,
         s.Type.ToString(), s.Language, s.Condition, s.GradingCompany, s.GradeValue,
         s.QuantityTotal, s.QuantityAvailable, s.QuantityReserved,
         s.PurchasePrice, s.PurchaseCurrency, s.Notes, s.CreatedAt, s.UpdatedAt);

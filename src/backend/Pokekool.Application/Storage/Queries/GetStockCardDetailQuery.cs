@@ -1,4 +1,6 @@
 using MediatR;
+using Pokekool.Application.Abstractions;
+using Pokekool.Application.Pokemon.Services;
 using Pokekool.Domain.Common;
 using Pokekool.Domain.Entities.Storage;
 using Pokekool.Domain.Repositories;
@@ -18,15 +20,21 @@ internal sealed class GetStockCardDetailQueryHandler
     private readonly IPokemonCardRepository _cardRepo;
     private readonly ICardMarketPriceRepository _marketRepo;
     private readonly ICardGradedPriceRepository _gradedRepo;
+    private readonly ICardDisplayNameResolver _displayNameResolver;
+    private readonly ICurrentDisplayLanguageService _displayLanguage;
 
     public GetStockCardDetailQueryHandler(
         IShopStockRepository stockRepo, IPokemonCardRepository cardRepo,
-        ICardMarketPriceRepository marketRepo, ICardGradedPriceRepository gradedRepo)
+        ICardMarketPriceRepository marketRepo, ICardGradedPriceRepository gradedRepo,
+        ICardDisplayNameResolver displayNameResolver,
+        ICurrentDisplayLanguageService displayLanguage)
     {
         _stockRepo = stockRepo;
         _cardRepo = cardRepo;
         _marketRepo = marketRepo;
         _gradedRepo = gradedRepo;
+        _displayNameResolver = displayNameResolver;
+        _displayLanguage = displayLanguage;
     }
 
     public async Task<StorageCardDetailDto> Handle(GetStockCardDetailQuery request, CancellationToken ct)
@@ -39,6 +47,11 @@ internal sealed class GetStockCardDetailQueryHandler
 
         var card = stock.CardId is { } cid ? await _cardRepo.GetByIdAsync(cid, ct) : null;
         var name = card?.Name ?? stock.ProductName ?? "Article";
+        // DisplayName n'a de sens que pour une carte du référentiel (card non null) : sinon
+        // (article scellé/sans carte liée), pas de traduction possible, on garde name tel quel.
+        var displayName = card is not null
+            ? await _displayNameResolver.ResolveAsync(card.Id, card.Name, _displayLanguage.Language, ct)
+            : name;
 
         decimal? estimated = null;
         string? currency = null;
@@ -76,7 +89,7 @@ internal sealed class GetStockCardDetailQueryHandler
         }
 
         return new StorageCardDetailDto(
-            card?.Id, name, card?.Set?.Name, card?.ImageSmall, card?.ImageLarge,
+            card?.Id, card?.TcgId, name, displayName, card?.Set?.Name, card?.ImageSmall, card?.ImageLarge,
             stock.Type.ToString(), stock.Condition, stock.GradingCompany, stock.GradeValue,
             estimated, currency, stock.QuantityAvailable, recent);
     }

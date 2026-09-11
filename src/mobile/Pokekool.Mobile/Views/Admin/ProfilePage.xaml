@@ -28,6 +28,19 @@
             </Border>
 
             <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Langue d'affichage des cartes" FontAttributes="Bold" />
+                    <Label Text="Les images des cartes affichent toujours le nom imprimé dessus, quelle que soit cette préférence."
+                           Style="{StaticResource SubtleLabel}" />
+                    <HorizontalStackLayout Spacing="8">
+                        <Label Text="Anglais" VerticalOptions="Center" />
+                        <Switch IsToggled="{Binding CardLanguageIsFrench}" />
+                        <Label Text="Français" VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource Card}">
                 <VerticalStackLayout Spacing="10">
                     <Label Text="Changer le mot de passe" FontAttributes="Bold" />
                     <Entry Placeholder="Mot de passe actuel" IsPassword="True" Text="{Binding CurrentPassword}" />

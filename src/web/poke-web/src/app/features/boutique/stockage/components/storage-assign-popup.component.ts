@@ -64,7 +64,7 @@ type Phase = 'list' | 'assign-label';
                     (click)="toggleSelect(item.id)">
                   <div class="card-item__img-wrap">
                     @if (item.cardImage) {
-                      <img [src]="item.cardImage" [alt]="item.cardName ?? 'carte'" class="card-item__img" loading="lazy" />
+                      <img [src]="item.cardImage" [alt]="item.displayName || item.cardName || 'carte'" class="card-item__img" loading="lazy" />
                     } @else {
                       <div class="card-item__no-img">?</div>
                     }
@@ -73,7 +73,7 @@ type Phase = 'list' | 'assign-label';
                     }
                   </div>
                   <div class="card-item__info">
-                    <span class="card-item__name">{{ item.cardName ?? item.productName ?? '—' }}</span>
+                    <span class="card-item__name">{{ item.displayName || item.cardName || item.productName || '—' }}</span>
                     <span class="card-item__meta">
                       @if (item.gradingCompany) { {{ item.gradingCompany }} {{ item.gradeValue }} · }
                       @else if (item.condition) { {{ item.condition }} · }

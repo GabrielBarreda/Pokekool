@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Pokekool.Mobile.Services;
 
@@ -11,7 +12,13 @@ public sealed class ApiClient
 {
     public const string HttpClientName = "PokekoolApi";
 
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
+    {
+        // Le backend sérialise les enums en texte (JsonStringEnumConverter dans Program.cs) —
+        // sans ce convertisseur ici, la désérialisation d'un champ enum (ex. ScanStatus) plante
+        // avec "The JSON value could not be converted...".
+        Converters = { new JsonStringEnumConverter() },
+    };
 
     private readonly IHttpClientFactory _factory;
 

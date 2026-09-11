@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -10,7 +11,9 @@ namespace Pokekool.Infrastructure.Collection.Scanning;
 
 /// <summary>
 /// Analyseur de cartes Pokémon via Ollama Vision (modèle multimodal type llava).
-/// Dégradation gracieuse : tout échec (timeout, HTTP, JSON invalide) retourne une liste vide.
+/// Dégradation gracieuse : tout échec (timeout, HTTP, modèle absent, JSON invalide) est
+/// converti en <see cref="CardVisionAnalysis"/> avec un <see cref="CardVisionStatus"/> explicite
+/// (jamais d'exception), pour que le client sache POURQUOI le résultat est vide.
 /// </summary>
 public sealed class OllamaCardVisionAnalyzer : ICardVisionAnalyzer, IDisposable
 {
@@ -66,21 +69,46 @@ public sealed class OllamaCardVisionAnalyzer : ICardVisionAnalyzer, IDisposable
 
     public void Dispose() => _http.Dispose();
 
-    public async Task<IReadOnlyList<CardVisionResult>> AnalyzeAsync(
+    public async Task<CardVisionAnalysis> AnalyzeAsync(
         string imageBase64,
         string ragContext,
+        IReadOnlyList<string>? exclusions = null,
+        string? modelOverride = null,
         CancellationToken ct = default)
     {
+        // Modèle réglable dynamiquement (Paramètres › Scan, IA Vision — voir
+        // VisionModelSettingsReader) sans redémarrer l'API : _options.Model (config statique,
+        // résolu au démarrage) reste le filet de sécurité si l'appelant ne passe rien.
+        var model = string.IsNullOrWhiteSpace(modelOverride) ? _options.Model : modelOverride;
+
         var prompt = PromptTemplate.Replace("{ragContext}", ragContext, StringComparison.Ordinal);
+
+        // Re-roll : l'utilisateur a rejeté ces identifications, on interdit au modèle de les reproposer
+        // et on l'oriente vers les indices fiables (numéro imprimé, symbole d'extension).
+        if (exclusions is { Count: > 0 })
+        {
+            var list = string.Join("\n", exclusions.Where(e => !string.IsNullOrWhiteSpace(e)).Select(e => $"- {e.Trim()}"));
+            prompt +=
+                "\n\nIDENTIFICATIONS DÉJÀ REJETÉES PAR L'UTILISATEUR (INTERDIT de les reproposer) :\n" + list +
+                "\n\nCes propositions étaient FAUSSES. Ne les répète pas. Réexamine attentivement la carte : " +
+                "lis en priorité le NUMÉRO imprimé (ex: 114/127) en bas de la carte et le symbole d'extension, " +
+                "et propose une identification DIFFÉRENTE et cohérente avec ces indices.";
+        }
 
         var requestBody = new
         {
-            model = _options.Model,
+            model,
             prompt,
             images = new[] { imageBase64 },
             stream = false,
             format = "json",
-            options = new { num_predict = 2048 }
+            // temperature: 0 + seed fixe : sans ça le modèle peut lire des choses différentes
+            // sur la MÊME photo d'un appel à l'autre (observé en test le 2026-09-11 — une carte
+            // correctement identifiée à un instant t, puis une identification totalement
+            // différente et fausse à la relance suivante sur la photo identique). Le fallback
+            // texte/vision dépend justement de relances répétées sur une même photo (3e tentative
+            // puis au-delà) : la reproductibilité y compte plus que la diversité de réponses.
+            options = new { num_predict = 2048, temperature = 0, seed = 42 }
         };
 
         try
@@ -89,8 +117,24 @@ public sealed class OllamaCardVisionAnalyzer : ICardVisionAnalyzer, IDisposable
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogWarning("Ollama Vision a retourné {Status}", response.StatusCode);
-                return Array.Empty<CardVisionResult>();
+                var body = await SafeReadBodyAsync(response, ct);
+
+                // Ollama renvoie 404 + "model '...' not found, try pulling it first" quand le modèle
+                // n'est pas téléchargé — cas très fréquent, à distinguer d'une vraie panne service.
+                if (response.StatusCode == HttpStatusCode.NotFound
+                    || body.Contains("not found", StringComparison.OrdinalIgnoreCase)
+                    || body.Contains("try pulling", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning("Modèle Ollama Vision '{Model}' absent : {Body}", model, body);
+                    return CardVisionAnalysis.Failure(
+                        CardVisionStatus.ModelNotFound,
+                        $"Modèle '{model}' absent (ollama pull {model}).");
+                }
+
+                _logger.LogWarning("Ollama Vision a retourné {Status} : {Body}", response.StatusCode, body);
+                return CardVisionAnalysis.Failure(
+                    CardVisionStatus.ServiceUnavailable,
+                    $"Ollama a répondu {(int)response.StatusCode}.");
             }
 
             var content = await response.Content.ReadAsStringAsync(ct);
@@ -99,33 +143,43 @@ public sealed class OllamaCardVisionAnalyzer : ICardVisionAnalyzer, IDisposable
             if (!envelope.RootElement.TryGetProperty("response", out var responseEl))
             {
                 _logger.LogWarning("Réponse Ollama Vision sans champ 'response'");
-                return Array.Empty<CardVisionResult>();
+                return CardVisionAnalysis.Failure(CardVisionStatus.InvalidResponse, "Réponse sans champ 'response'.");
             }
 
             var jsonText = responseEl.GetString();
             if (string.IsNullOrWhiteSpace(jsonText))
             {
                 _logger.LogWarning("Champ 'response' Ollama Vision vide");
-                return Array.Empty<CardVisionResult>();
+                return CardVisionAnalysis.Failure(CardVisionStatus.InvalidResponse, "Le modèle a renvoyé une réponse vide.");
             }
 
-            return ParseCards(jsonText);
+            return CardVisionAnalysis.Success(ParseCards(jsonText));
         }
         catch (TaskCanceledException) when (!ct.IsCancellationRequested)
         {
             _logger.LogWarning("Timeout Ollama Vision après {Timeout}s", _options.TimeoutSeconds);
-            return Array.Empty<CardVisionResult>();
+            return CardVisionAnalysis.Failure(
+                CardVisionStatus.ServiceUnavailable,
+                $"Timeout après {_options.TimeoutSeconds}s.");
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogWarning(ex, "Ollama Vision indisponible ({BaseUrl}) — dégradation gracieuse", _options.BaseUrl);
-            return Array.Empty<CardVisionResult>();
+            _logger.LogWarning(ex, "Ollama Vision indisponible ({BaseUrl})", _options.BaseUrl);
+            return CardVisionAnalysis.Failure(
+                CardVisionStatus.ServiceUnavailable,
+                $"Service injoignable ({_options.BaseUrl}).");
         }
         catch (JsonException ex)
         {
             _logger.LogWarning(ex, "Ollama Vision a retourné un JSON invalide");
-            return Array.Empty<CardVisionResult>();
+            return CardVisionAnalysis.Failure(CardVisionStatus.InvalidResponse, "JSON invalide renvoyé par le modèle.");
         }
+    }
+
+    private static async Task<string> SafeReadBodyAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        try { return await response.Content.ReadAsStringAsync(ct); }
+        catch { return string.Empty; }
     }
 
     private IReadOnlyList<CardVisionResult> ParseCards(string jsonText)

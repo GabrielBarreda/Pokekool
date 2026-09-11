@@ -20,7 +20,10 @@ export interface ShopProductDto {
   shopId: string;
   type: string;
   cardId?: string | null;
+  cardTcgId?: string | null;
   cardName?: string | null;
+  /** Nom traduit selon la langue d'affichage préférée du client (résolu serveur). */
+  displayName?: string | null;
   cardImage?: string | null;
   productName?: string | null;
   condition?: string | null;

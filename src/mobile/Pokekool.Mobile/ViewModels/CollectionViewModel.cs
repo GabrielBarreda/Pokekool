@@ -93,7 +93,7 @@ public partial class CollectionCardItem : ObservableObject
     [ObservableProperty] private bool _isFavorite;
     [ObservableProperty] private bool _isPriority;
 
-    public string DisplayName => $"{Card.Name} · {Card.Number}";
+    public string DisplayName => $"{(string.IsNullOrWhiteSpace(Card.DisplayName) ? Card.Name : Card.DisplayName)} · {Card.Number}";
     public string SetLabel => Card.SetName;
     public string? Image => Card.ImageSmall;
 

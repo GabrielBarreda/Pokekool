@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Pokekool.Domain.Entities;
 using Pokekool.Domain.Entities.Authorization;
+using Pokekool.Domain.Entities.Collection;
 using Pokekool.Domain.Entities.Pokemon;
 using Pokekool.Domain.Entities.Shop;
 using ShopEntity = Pokekool.Domain.Entities.Shop.Shop;
@@ -18,6 +19,7 @@ public sealed class PokekoolDbContext : DbContext
     public DbSet<PokemonSeries> PokemonSeries => Set<PokemonSeries>();
     public DbSet<PokemonSet> PokemonSets => Set<PokemonSet>();
     public DbSet<PokemonCard> PokemonCards => Set<PokemonCard>();
+    public DbSet<CardTranslation> CardTranslations => Set<CardTranslation>();
     public DbSet<CardMarketPrice> CardMarketPrices => Set<CardMarketPrice>();
     public DbSet<CardGradedPrice> CardGradedPrices => Set<CardGradedPrice>();
     public DbSet<CardPopulation> CardPopulations => Set<CardPopulation>();
@@ -53,9 +55,19 @@ public sealed class PokekoolDbContext : DbContext
     public DbSet<Pokekool.Domain.Entities.Storage.StorageFurniture> StorageFurnitures
         => Set<Pokekool.Domain.Entities.Storage.StorageFurniture>();
 
+    // ---- Module Scan / Traçabilité ----
+    public DbSet<ScanRun> ScanRuns => Set<ScanRun>();
+    public DbSet<ScanRunItem> ScanRunItems => Set<ScanRunItem>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Extension pgvector — requise par la shadow property "Embedding" sur PokemonCard
+        // (voir PokemonCardConfiguration.cs). Générée dans la migration EF via
+        // migrationBuilder.AlterDatabase(...).Annotation("Npgsql:PostgresExtension:vector", ...).
+        modelBuilder.HasPostgresExtension("vector");
+
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(PokekoolDbContext).Assembly);
 
         modelBuilder.Entity<User>().HasQueryFilter(u => u.DeletedAt == null);

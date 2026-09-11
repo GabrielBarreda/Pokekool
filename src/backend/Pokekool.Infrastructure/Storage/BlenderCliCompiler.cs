@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Pokekool.Application.Storage;
@@ -14,17 +15,23 @@ namespace Pokekool.Infrastructure.Storage;
 internal sealed class BlenderCliCompiler : IBlenderCompiler
 {
     private readonly BlenderOptions _options;
+    private readonly IHostEnvironment _environment;
     private readonly ILogger<BlenderCliCompiler> _logger;
 
-    public BlenderCliCompiler(IOptions<BlenderOptions> options, ILogger<BlenderCliCompiler> logger)
+    public BlenderCliCompiler(IOptions<BlenderOptions> options, IHostEnvironment environment, ILogger<BlenderCliCompiler> logger)
     {
         _options = options.Value;
+        _environment = environment;
         _logger = logger;
     }
 
     public async Task<BlenderCompileResult> CompileAsync(string blendPath, string outputGlbPath, CancellationToken ct)
     {
-        var scriptPath = Path.GetFullPath(_options.ScriptPath);
+        // Résolu par rapport au ContentRoot de l'app (stable), pas au cwd du process
+        // (Environment.CurrentDirectory varie selon IDE/service/conteneur — cf. incident chemin Blender).
+        var scriptPath = Path.IsPathRooted(_options.ScriptPath)
+            ? _options.ScriptPath
+            : Path.GetFullPath(Path.Combine(_environment.ContentRootPath, _options.ScriptPath));
         if (!File.Exists(scriptPath))
             return BlenderCompileResult.Failure($"Script Blender introuvable : {scriptPath}");
 

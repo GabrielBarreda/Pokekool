@@ -1,5 +1,6 @@
 using MediatR;
 using Pokekool.Application.Abstractions;
+using Pokekool.Application.Pokemon.Services;
 using Pokekool.Domain.Repositories;
 using Pokekool.Shared.Dtos.Collection;
 using Pokekool.Shared.Dtos.Common;
@@ -11,13 +12,19 @@ public sealed class GetCollectionCardsQueryHandler
 {
     private readonly IUserCollectionRepository _collectionRepo;
     private readonly ICurrentUserService _currentUser;
+    private readonly ICardDisplayNameResolver _displayNameResolver;
+    private readonly ICurrentDisplayLanguageService _displayLanguage;
 
     public GetCollectionCardsQueryHandler(
         IUserCollectionRepository collectionRepo,
-        ICurrentUserService currentUser)
+        ICurrentUserService currentUser,
+        ICardDisplayNameResolver displayNameResolver,
+        ICurrentDisplayLanguageService displayLanguage)
     {
         _collectionRepo = collectionRepo;
         _currentUser = currentUser;
+        _displayNameResolver = displayNameResolver;
+        _displayLanguage = displayLanguage;
     }
 
     public async Task<PagedResult<CollectionCardDto>> Handle(
@@ -39,11 +46,16 @@ public sealed class GetCollectionCardsQueryHandler
             request.PageSize,
             cancellationToken);
 
+        var englishNamesByCardId = items.ToDictionary(p => p.Id, p => p.Name);
+        var displayNames = await _displayNameResolver.ResolveManyAsync(
+            englishNamesByCardId, _displayLanguage.Language, cancellationToken);
+
         var dtos = items.Select(p => new CollectionCardDto(
             p.Id.ToString(),
             p.TcgId,
             p.Number,
             p.Name,
+            displayNames.TryGetValue(p.Id, out var displayName) ? displayName : p.Name,
             p.Supertype,
             p.Rarity,
             p.Types,

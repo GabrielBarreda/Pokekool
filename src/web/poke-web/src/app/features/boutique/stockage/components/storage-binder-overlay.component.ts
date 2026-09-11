@@ -76,6 +76,7 @@ export class StorageBinderOverlayComponent {
           id: c.locationId,
           imageUrl: c.imageSmall,
           name: c.name,
+          displayName: c.displayName,
           imageLargeUrl: c.imageLarge ?? c.imageSmall,
         })));
         this.loading.set(false);

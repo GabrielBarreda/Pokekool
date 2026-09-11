@@ -17,6 +17,7 @@
                     <Label FontAttributes="Bold" FontSize="18">
                         <Label.Text>
                             <MultiBinding Converter="{StaticResource FirstNotEmptyConverter}">
+                                <Binding Path="Product.DisplayName" />
                                 <Binding Path="Product.CardName" />
                                 <Binding Path="Product.ProductName" />
                             </MultiBinding>

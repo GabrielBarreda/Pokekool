@@ -32,14 +32,18 @@ public static class MauiProgram
         services.AddSingleton(WeakReferenceMessenger.Default);
         services.AddSingleton<SessionService>();
         services.AddSingleton<AuthService>();
+        services.AddSingleton<CardDisplayLanguageService>();
         services.AddTransient<AuthHttpMessageHandler>();
+        services.AddTransient<DisplayLanguageHttpMessageHandler>();
 
         services.AddHttpClient(ApiClient.HttpClientName, client =>
             {
                 client.BaseAddress = new Uri(ApiConfig.BaseUrl);
-                client.Timeout = TimeSpan.FromSeconds(100);
+                // 180s : couvre le 1er chargement du modèle vision en VRAM (cold start Ollama).
+                client.Timeout = TimeSpan.FromSeconds(180);
             })
-            .AddHttpMessageHandler<AuthHttpMessageHandler>();
+            .AddHttpMessageHandler<AuthHttpMessageHandler>()
+            .AddHttpMessageHandler<DisplayLanguageHttpMessageHandler>();
 
         services.AddSingleton<ApiClient>();
 

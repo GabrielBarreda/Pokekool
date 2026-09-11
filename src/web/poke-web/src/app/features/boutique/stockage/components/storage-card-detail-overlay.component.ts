@@ -27,10 +27,10 @@ import { StorageBinderCardDto, StorageCardDetailDto } from '../storage.models';
         <div class="body">
           <div class="hero">
             @if (d.imageLarge || d.imageSmall) {
-              <img class="hero__img" [src]="d.imageLarge || d.imageSmall" [alt]="d.name" />
+              <img class="hero__img" [src]="d.imageLarge || d.imageSmall" [alt]="d.displayName || d.name" />
             }
           </div>
-          <h3 class="name">{{ d.name }}</h3>
+          <h3 class="name">{{ d.displayName || d.name }}</h3>
           @if (d.setName) { <div class="set">{{ d.setName }}</div> }
 
           <div class="badges">

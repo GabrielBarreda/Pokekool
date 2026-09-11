@@ -169,3 +169,11 @@ docker-compose.override.yml
 *.orig
 .history/
 .local/
+
+# =====================================================
+# Scan batch (banc de test volume DINOv2) — photos locales, jamais versionnées
+# =====================================================
+src/backend/Pokekool.API/scan-batch/_in/*
+src/backend/Pokekool.API/scan-batch/_out/*
+!src/backend/Pokekool.API/scan-batch/_in/.gitkeep
+!src/backend/Pokekool.API/scan-batch/_out/.gitkeep

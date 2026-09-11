@@ -5,6 +5,7 @@ public sealed record PokemonCardSummaryDto(
     string TcgId,
     string Number,
     string Name,
+    string DisplayName,
     string? Rarity,
     string? ImageSmall,
     string SetName,

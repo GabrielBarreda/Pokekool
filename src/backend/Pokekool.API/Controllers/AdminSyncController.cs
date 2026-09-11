@@ -7,6 +7,7 @@ using Pokekool.API.Authorization;
 using Pokekool.Application.Pokemon.Commands.SyncCardPopulation;
 using Pokekool.Application.Pokemon.Commands.SyncCardPrices;
 using Pokekool.Application.Pokemon.Commands.SyncPokemonTcg;
+using Pokekool.Application.Pokemon.Commands.SyncCardTranslations;
 using Pokekool.Infrastructure.Services;
 using Pokekool.Shared.Constants;
 using Pokekool.Shared.Dtos.Pokemon;
@@ -53,7 +54,28 @@ public sealed class AdminSyncController : BaseApiController
         [FromQuery] string? setTcgId    = null,
         CancellationToken ct            = default)
     {
-        var result = await _mediator.Send(new SyncPokemonTcgCommand(forceRefresh, setTcgId), ct);
+        var result = await RunTrackedAsync(() =>
+            _mediator.Send(new SyncPokemonTcgCommand(forceRefresh, setTcgId), ct));
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Synchronise les noms de cartes traduits (TCGdex) pour la langue donnée — alimente
+    /// card_translations, utilisé pour l'affichage UI (voir ADR-004). Ne touche jamais aux
+    /// données référentielles des cartes.
+    /// </summary>
+    [HttpPost("translations")]
+    [RequirePermission(Permissions.CardsSync)]
+    [ProducesResponseType(typeof(SyncCardTranslationsResultDto), StatusCodes.Status200OK)]
+    [SwaggerOperation(Summary = "Sync translated card names (TCGdex) for a display language")]
+    public async Task<ActionResult<SyncCardTranslationsResultDto>> SyncTranslations(
+        [FromQuery] string language      = "fr",
+        [FromQuery] string? setTcgId     = null,
+        [FromQuery] bool forceRefresh    = false,
+        CancellationToken ct             = default)
+    {
+        var result = await RunTrackedAsync(() =>
+            _mediator.Send(new SyncCardTranslationsCommand(language, setTcgId, forceRefresh), ct));
         return Ok(result);
     }
 
@@ -69,8 +91,8 @@ public sealed class AdminSyncController : BaseApiController
         [FromBody] SyncPricesRequest? body,
         CancellationToken ct = default)
     {
-        var result = await _mediator.Send(
-            new SyncCardPricesCommand(body?.CardIds, body?.StalenessHours ?? 24, body?.SetId), ct);
+        var result = await RunTrackedAsync(() =>
+            _mediator.Send(new SyncCardPricesCommand(body?.CardIds, body?.StalenessHours ?? 24, body?.SetId), ct));
         return Ok(result);
     }
 
@@ -86,8 +108,8 @@ public sealed class AdminSyncController : BaseApiController
         [FromBody] SyncPopulationRequest? body,
         CancellationToken ct = default)
     {
-        var result = await _mediator.Send(
-            new SyncCardPopulationCommand(body?.CardIds), ct);
+        var result = await RunTrackedAsync(() =>
+            _mediator.Send(new SyncCardPopulationCommand(body?.CardIds), ct));
         return Ok(result);
     }
 
@@ -102,13 +124,25 @@ public sealed class AdminSyncController : BaseApiController
         if (!TimeOnly.TryParse(req.Time, out var time))
             return BadRequest("Format invalide — attendu HH:mm.");
 
-        var now     = DateTime.Now;
-        var todayRun = DateTime.Today.Add(time.ToTimeSpan());
-        var nextRun  = todayRun > now ? todayRun : todayRun.AddDays(1);
+        // Bug corrigé (2026-09-07) : req.Time est saisi par l'utilisateur en heure de Paris,
+        // mais DateTime.Now/DateTime.Today utilisent le fuseau du serveur — qui est UTC en
+        // conteneur Docker (pas de TZ défini). "15:30" saisi était donc stocké comme 15:30 UTC
+        // (= 17:30 Paris en heure d'été), d'où le décalage de 2h observé entre le libellé
+        // "Sync planifié — 15:30" (ScheduledTime brut, jamais reconverti) et le sous-titre
+        // "Aujourd'hui à 17:30" (NextRunAt en UTC, correctement reconverti côté front). On
+        // convertit maintenant explicitement depuis le fuseau Europe/Paris, indépendamment du
+        // fuseau réel du serveur/conteneur.
+        var parisZone   = TimeZoneInfo.FindSystemTimeZoneById("Europe/Paris");
+        var nowParis    = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, parisZone);
+        var todayRunParis = new DateTimeOffset(
+            nowParis.Year, nowParis.Month, nowParis.Day,
+            time.Hour, time.Minute, 0,
+            parisZone.GetUtcOffset(nowParis.DateTime));
+        var nextRunParis = todayRunParis > nowParis ? todayRunParis : todayRunParis.AddDays(1);
 
         _scheduleState.ScheduledTime = time;
         _scheduleState.IsRecurring   = req.IsRecurring;
-        _scheduleState.NextRunAt     = nextRun.ToUniversalTime();
+        _scheduleState.NextRunAt     = nextRunParis.UtcDateTime;
         _scheduleState.Status        = SyncScheduleStatus.Pending;
 
         return Ok(MapScheduleToDto());
@@ -156,6 +190,32 @@ public sealed class AdminSyncController : BaseApiController
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Fait passer l'état de sync partagé (déjà utilisé par le sync planifié, voir
+    /// SyncScheduleState/ScheduledSyncService) à "Running" pendant l'exécution d'un sync
+    /// déclenché manuellement (catalogue, traductions, prix, population), puis "Completed" à
+    /// la fin — quel que soit le résultat. C'est ce même état que l'overlay de progression
+    /// (SyncProgressOverlayComponent, web) sonde pour savoir s'il doit s'afficher : avant ce
+    /// changement, seul le sync planifié automatique le faisait, donc un sync lancé à la main
+    /// depuis l'UI ne faisait jamais apparaître l'overlay. Pas de garde anti-concurrence :
+    /// outil d'admin mono-utilisateur, deux syncs manuels simultanés restent un cas limite
+    /// accepté (le second écraserait le "Completed" du premier avec son propre "Running", sans
+    /// conséquence fonctionnelle grave).
+    /// </summary>
+    private async Task<T> RunTrackedAsync<T>(Func<Task<T>> action)
+    {
+        _scheduleState.Status = SyncScheduleStatus.Running;
+        try
+        {
+            return await action();
+        }
+        finally
+        {
+            _scheduleState.Status          = SyncScheduleStatus.Completed;
+            _scheduleState.LastCompletedAt = DateTime.UtcNow;
+        }
+    }
 
     private SyncScheduleDto MapScheduleToDto() => new(
         ScheduledTime:     _scheduleState.ScheduledTime?.ToString("HH:mm"),

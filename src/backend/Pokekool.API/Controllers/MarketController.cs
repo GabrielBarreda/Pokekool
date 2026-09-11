@@ -53,6 +53,27 @@ public sealed class MarketController : BaseApiController
             new GetMarketCardsQuery(setId, search, rarity, supertype, page, pageSize), ct));
 
     /// <summary>
+    /// Liste toutes les cartes du catalogue, tous sets confondus (mode "Tous les sets" du
+    /// sélecteur front — 2026-09-08), avec leurs prix de marché résumés. Même filtres/pagination
+    /// que GetMarketCards, sans restriction de set.
+    /// </summary>
+    [HttpGet("cards")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(PagedResult<MarketCardDto>), StatusCodes.Status200OK)]
+    [SwaggerOperation(
+        Summary = "Liste des cartes du marché, tous sets confondus",
+        Description = "Retourne les cartes du catalogue entier enrichies du meilleur prix marché disponible (tcgplayer holofoil > normal > cardmarket).")]
+    public async Task<ActionResult<PagedResult<MarketCardDto>>> GetAllMarketCards(
+        [FromQuery] string? search,
+        [FromQuery] string? rarity,
+        [FromQuery] string? supertype,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 60,
+        CancellationToken ct = default)
+        => Ok(await _mediator.Send(
+            new GetMarketCardsQuery(SetId: null, search, rarity, supertype, page, pageSize), ct));
+
+    /// <summary>
     /// Données de gradation réelles pour une carte (PSA via PriceCharting).
     /// Retourne une liste vide si aucune donnée n'est disponible.
     /// </summary>

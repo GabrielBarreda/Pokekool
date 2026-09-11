@@ -107,13 +107,13 @@ type Phase = 'camera' | 'analyzing' | 'review' | 'saving';
                       </label>
                       <div class="match-img-wrap">
                         @if (m.imageSmall) {
-                          <img [src]="m.imageSmall" [alt]="m.cardName ?? ''" class="match-img" loading="lazy" />
+                          <img [src]="m.imageSmall" [alt]="m.displayName || m.cardName || ''" class="match-img" loading="lazy" />
                         } @else {
                           <div class="match-no-img">?</div>
                         }
                       </div>
                       <div class="match-info">
-                        <span class="match-name">{{ m.cardName ?? 'Non identifiée' }}</span>
+                        <span class="match-name">{{ m.displayName || m.cardName || 'Non identifiée' }}</span>
                         @if (m.setName) { <span class="match-set">{{ m.setName }}</span> }
                         @if (m.gradingCompany) { <span class="match-grade">{{ m.gradingCompany }} {{ m.gradeValue }}</span> }
                         <div class="match-conf" [class.match-conf--low]="m.confidence < 0.65">

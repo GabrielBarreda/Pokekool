@@ -42,13 +42,13 @@ import { RecentlyScrapedCardDto } from '../dashboard.models';
             <div class="scraped-card">
               <div class="scraped-card__img-wrap">
                 @if (card.imageSmall) {
-                  <img [src]="card.imageSmall" [alt]="card.name" class="scraped-card__img" loading="lazy" />
+                  <img [src]="card.imageSmall" [alt]="card.displayName || card.name" class="scraped-card__img" loading="lazy" />
                 } @else {
                   <div class="scraped-card__img-placeholder">🃏</div>
                 }
               </div>
               <div class="scraped-card__info">
-                <span class="scraped-card__name" [title]="card.name">{{ card.name }}</span>
+                <span class="scraped-card__name" [title]="card.displayName || card.name">{{ card.displayName || card.name }}</span>
                 <span class="scraped-card__set">{{ card.setName }}</span>
                 @if (card.priceMarket !== null) {
                   <span class="scraped-card__price">

@@ -157,7 +157,7 @@ const OPENCV_CDN = 'https://docs.opencv.org/4.8.0/opencv.js';
               }
 
               <div class="card-info">
-                <span class="card-name">{{ card.cardName ?? card.setName ?? 'Inconnue' }}</span>
+                <span class="card-name">{{ card.displayName ?? card.cardName ?? card.setName ?? 'Inconnue' }}</span>
                 <span class="card-meta">{{ card.setName }} · {{ card.cardNumber }}</span>
 
                 @if (card.gradingCompany) {

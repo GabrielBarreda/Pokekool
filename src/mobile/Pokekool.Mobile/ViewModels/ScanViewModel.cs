@@ -15,10 +15,17 @@ public partial class ScanViewModel : BaseViewModel
 {
     private readonly CollectionApiService _collection;
 
+    /// <summary>Dernière photo scannée, conservée pour permettre un re-roll sans reprendre la photo.</summary>
+    private FileResult? _lastPhoto;
+
+    /// <summary>Libellés rejetés par l'utilisateur, cumulés sur les re-rolls d'une même photo.</summary>
+    private readonly List<string> _exclusions = new();
+
     public ObservableCollection<ScanMatchItem> Matches { get; } = new();
 
     [ObservableProperty] private string? _statusMessage;
     [ObservableProperty] private bool _hasResults;
+    [ObservableProperty] private bool _canRetry;
 
     public ScanViewModel(CollectionApiService collection) => _collection = collection;
 
@@ -35,7 +42,7 @@ public partial class ScanViewModel : BaseViewModel
             new MediaPickerOptions { Title = "Scanner des cartes" });
         if (photo is null) return; // annulé
 
-        await ScanPhotoAsync(photo);
+        await ScanPhotoAsync(photo, isNewPhoto: true);
     });
 
     [RelayCommand]
@@ -45,25 +52,63 @@ public partial class ScanViewModel : BaseViewModel
             new MediaPickerOptions { Title = "Choisir une photo" });
         if (photo is null) return;
 
-        await ScanPhotoAsync(photo);
+        await ScanPhotoAsync(photo, isNewPhoto: true);
     });
 
-    private async Task ScanPhotoAsync(FileResult photo)
+    /// <summary>« Ce n'est pas ça » : exclut la carte proposée et relance l'analyse de la même photo.</summary>
+    [RelayCommand]
+    private Task RejectAsync(ScanMatchItem? item) => RunSafeAsync(async () =>
     {
-        StatusMessage = "Analyse de la photo…";
+        if (item is null || _lastPhoto is null) return;
+
+        var label = item.Match.Matched
+            ? $"{item.Match.CardName} · {item.Match.SetName} #{item.Match.CardNumber}"
+            : item.Match.CardName;
+        if (!string.IsNullOrWhiteSpace(label) && !_exclusions.Contains(label))
+            _exclusions.Add(label);
+
+        await ScanPhotoAsync(_lastPhoto, isNewPhoto: false);
+    });
+
+    private async Task ScanPhotoAsync(FileResult photo, bool isNewPhoto)
+    {
+        if (isNewPhoto)
+        {
+            _lastPhoto = photo;
+            _exclusions.Clear();
+        }
+
+        StatusMessage = _exclusions.Count > 0 ? "Nouvelle analyse (carte exclue)…" : "Analyse de la photo…";
         Matches.Clear();
         HasResults = false;
 
         await using var stream = await photo.OpenReadAsync();
-        var result = await _collection.ScanAsync(stream, photo.FileName ?? "scan.jpg");
+        var result = await _collection.ScanAsync(
+            stream, photo.FileName ?? "scan.jpg",
+            _exclusions.Count > 0 ? _exclusions.ToList() : null);
 
         foreach (var match in result.Matches)
             Matches.Add(new ScanMatchItem(match));
 
         HasResults = Matches.Count > 0;
-        StatusMessage = Matches.Count == 0
-            ? "Aucune carte reconnue sur cette photo."
-            : $"{Matches.Count} carte(s) détectée(s) — sélectionnez celles à ajouter.";
+
+        // Le re-roll n'a de sens que si le backend a bien répondu (statut Ok) et qu'on a une photo.
+        CanRetry = _lastPhoto is not null
+                   && result.Status is ScanStatus.Ok or ScanStatus.LowConfidence or ScanStatus.NoCardDetected;
+
+        // On affiche la cause précise remontée par le backend (service KO, modèle absent,
+        // aucune carte, confiance trop basse…) au lieu d'un message générique.
+        var excludedSuffix = _exclusions.Count > 0 ? $" ({_exclusions.Count} carte(s) exclue(s))" : "";
+        StatusMessage = Matches.Count > 0
+            ? $"{Matches.Count} carte(s) détectée(s) — sélectionnez celles à ajouter.{excludedSuffix}"
+            : result.Message ?? result.Status switch
+            {
+                ScanStatus.ServiceUnavailable => "Service d'analyse indisponible. Vérifie qu'Ollama tourne.",
+                ScanStatus.ModelNotFound => "Modèle d'analyse absent côté serveur (ollama pull).",
+                ScanStatus.InvalidResponse => "Réponse d'analyse illisible. Réessaie.",
+                ScanStatus.LowConfidence => $"Carte entrevue mais trop floue — rapproche-toi et améliore l'éclairage.{excludedSuffix}",
+                _ => $"Aucune carte reconnue sur cette photo.{excludedSuffix}"
+            };
     }
 
     [RelayCommand]
@@ -92,7 +137,7 @@ public partial class ScanMatchItem : ObservableObject
     [ObservableProperty] private bool _isSelected;
 
     public string DisplayName => Match.Matched
-        ? $"{Match.CardName} · {Match.SetName} #{Match.CardNumber}"
+        ? $"{(string.IsNullOrWhiteSpace(Match.DisplayName) ? Match.CardName : Match.DisplayName)} · {Match.SetName} #{Match.CardNumber}"
         : "Carte non identifiée";
 
     public string ConfidenceLabel => Match.Matched

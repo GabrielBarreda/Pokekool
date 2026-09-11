@@ -13,7 +13,6 @@ import { FormsModule } from '@angular/forms';
 import { CollectionStore } from '../collection.store';
 import { CollectionCardComponent } from '../collection-card/collection-card.component';
 import { CollectionFiltersComponent } from '../collection-filters/collection-filters.component';
-import { CollectionScanComponent } from '../collection-scan/collection-scan.component';
 import { CollectionCardDto, SetOption } from '../collection.models';
 import { CARD_CONDITIONS, conditionLabel } from '@shared/constants/card-condition.labels';
 import { PageHeaderComponent } from '@shared/ui/page-header/page-header.component';
@@ -37,7 +36,6 @@ import { PokemonBinderComponent, BinderItem } from '@shared/ui/pokemon-binder/po
     EmptyStateComponent,
     FormsModule,
     PokemonBinderComponent,
-    CollectionScanComponent,
   ],
   styles: [`
     :host { display: block; }
@@ -164,29 +162,6 @@ import { PokemonBinderComponent, BinderItem } from '@shared/ui/pokemon-binder/po
     .modal-actions button.primary { background: var(--color-brand-primary); color: #fff; border-color: var(--color-brand-primary); }
     .modal-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    /* Barre d'actions + scan */
-    .toolbar { display: flex; justify-content: flex-end; margin: var(--space-2) 0; }
-    .btn-scan {
-      display: inline-flex; align-items: center; gap: var(--space-1);
-      height: 38px; padding: 0 var(--space-4);
-      border: 1px solid var(--color-border-default); border-radius: var(--radius-md);
-      background: var(--color-surface-raised); color: var(--color-text-primary);
-      cursor: pointer; font-size: var(--font-size-sm);
-    }
-    .scan-overlay {
-      position: fixed; inset: 0; z-index: 2000;
-      background: rgba(0,0,0,0.55);
-      display: flex; align-items: flex-start; justify-content: center;
-      overflow-y: auto; padding: var(--space-5);
-    }
-    .scan-modal {
-      background: var(--color-surface-raised);
-      border: 1px solid var(--color-border-default);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-xl);
-      padding: var(--space-5);
-      width: 100%; max-width: 860px;
-    }
   `],
   template: `
     <div class="page" (click)="onPageClick()">
@@ -194,12 +169,6 @@ import { PokemonBinderComponent, BinderItem } from '@shared/ui/pokemon-binder/po
         title="Ma Collection"
         [subtitle]="store.statsLabel()"
       />
-
-      <div class="toolbar">
-        <button class="btn-scan" (click)="openScan(); $event.stopPropagation()">
-          📷 Scanner
-        </button>
-      </div>
 
       <app-collection-filters
         [filters]="store.filters()"
@@ -317,7 +286,7 @@ import { PokemonBinderComponent, BinderItem } from '@shared/ui/pokemon-binder/po
       <div class="modal-backdrop" (click)="stockModal.set(null)">
         <div class="modal-box" (click)="$event.stopPropagation()">
           <p class="modal-title">Ajouter au stock boutique</p>
-          <p class="modal-sub">{{ card.name }} · {{ card.setName }}</p>
+          <p class="modal-sub">{{ card.displayName || card.name }} · {{ card.setName }}</p>
 
           <div class="modal-field">
             <label>État</label>
@@ -346,17 +315,6 @@ import { PokemonBinderComponent, BinderItem } from '@shared/ui/pokemon-binder/po
       </div>
     }
 
-    <!-- Overlay : scan par photo -->
-    @if (scanOpen()) {
-      <div class="scan-overlay" (click)="scanOpen.set(false)">
-        <div class="scan-modal" (click)="$event.stopPropagation()">
-          <app-collection-scan
-            (closed)="scanOpen.set(false)"
-            (added)="onScanAdded($event)"
-          />
-        </div>
-      </div>
-    }
   `,
 })
 export class CollectionPageComponent implements OnInit, OnDestroy {
@@ -374,6 +332,7 @@ export class CollectionPageComponent implements OnInit, OnDestroy {
       imageUrl: card.imageSmall,
       imageLargeUrl: card.imageLarge ?? card.imageSmall,
       name: card.name,
+      displayName: card.displayName,
       owned: card.isOwned,
       favorite: card.isFavorite,
       priority: card.isPriority && !card.isOwned,
@@ -388,9 +347,6 @@ export class CollectionPageComponent implements OnInit, OnDestroy {
   readonly conditionLabel = conditionLabel;
   stockQty       = 1;
   stockPrice: number | null = null;
-
-  // ── Scan par photo ────────────────────────────────────────────
-  readonly scanOpen = signal(false);
 
   availableSets: SetOption[] = [];
 
@@ -479,20 +435,6 @@ export class CollectionPageComponent implements OnInit, OnDestroy {
     return pages;
   }
 
-  // ── Scan par photo ────────────────────────────────────────────
-  openScan(): void {
-    this.store.closeContextMenu();
-    this.scanOpen.set(true);
-  }
-
-  onScanAdded(count: number): void {
-    if (count > 0) {
-      this.store.loadCards();
-      this.store.loadStats();
-    }
-    this.scanOpen.set(false);
-  }
-
   // ── Stock boutique ────────────────────────────────────────────
   openStockModal(card: CollectionCardDto): void {
     this.stockCondition = 'NM';
@@ -525,7 +467,7 @@ export class CollectionPageComponent implements OnInit, OnDestroy {
       next: () => {
         this.stockSaving.set(false);
         this.stockModal.set(null);
-        this.toast.show({ message: `${card.name} ajouté au stock boutique.`, type: 'success' });
+        this.toast.show({ message: `${card.displayName || card.name} ajouté au stock boutique.`, type: 'success' });
       },
       error: () => {
         this.stockSaving.set(false);

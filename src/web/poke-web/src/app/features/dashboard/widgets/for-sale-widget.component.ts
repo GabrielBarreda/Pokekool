@@ -33,10 +33,10 @@ import { ForSaleCardDto } from '../dashboard.models';
               <tr>
                 <td>
                   @if (card.imageSmall) {
-                    <img [src]="card.imageSmall" [alt]="card.name" class="sale-table__thumb" />
+                    <img [src]="card.imageSmall" [alt]="card.displayName || card.name" class="sale-table__thumb" />
                   }
                 </td>
-                <td class="sale-table__name">{{ card.name }}</td>
+                <td class="sale-table__name">{{ card.displayName || card.name }}</td>
                 <td class="sale-table__price">{{ card.salePrice | number:'1.2-2' }} {{ card.currency }}</td>
                 <td>
                   <app-badge [variant]="card.interestedCount > 0 ? 'brand' : 'neutral'">

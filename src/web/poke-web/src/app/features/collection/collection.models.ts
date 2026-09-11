@@ -5,6 +5,8 @@ export interface CollectionCardDto {
   tcgId: string;
   number: string;
   name: string;
+  /** Nom traduit selon la langue d'affichage préférée du client (résolu serveur). */
+  displayName: string | null;
   supertype: string | null;
   rarity: string | null;
   types: string[] | null;
@@ -74,6 +76,8 @@ export interface ContextMenuEvent {
 export interface CardScanMatchDto {
   cardId: string | null;
   cardName: string | null;
+  /** Nom traduit selon la langue d'affichage préférée du client (résolu serveur). */
+  displayName: string | null;
   setName: string | null;
   cardNumber: string | null;
   imageSmall: string | null;
