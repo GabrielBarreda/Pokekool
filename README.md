@@ -195,7 +195,5 @@ Détails complets : [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 Propriétaire. Voir [`LICENSE`](./LICENSE).
 
 
-## Plus tard 
-extend parametre 
- - boolean > client peut choisir sa table 
+
 
